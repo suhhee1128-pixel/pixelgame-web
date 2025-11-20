@@ -62,56 +62,14 @@ export class GameAssetGenerator {
     stylePreferences?: StylePreferences,
     referenceImagePath?: string
   ): Promise<{ imagePath: string; imageUrl: string }> {
-    const prompt = buildCharacterPrompt(characterDescription, stylePreferences);
-    
-    const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
-    
-    let contents: any[] = [prompt];
-    
-    if (referenceImagePath && await fs.pathExists(referenceImagePath)) {
-      const imageBuffer = await fs.readFile(referenceImagePath);
-      const imageBase64 = imageBuffer.toString('base64');
-      contents.push({
-        inlineData: {
-          data: imageBase64,
-          mimeType: 'image/png'
-        }
-      });
-    }
-
-    const result = await model.generateContent(contents);
-    const response = await result.response;
-
-    // Save image
-    const timestamp = Date.now();
-    const filename = `character_${timestamp}.png`;
-    const outputPath = path.join(this.characterDir, filename);
-
-    // Extract image from response
-    const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (imageData) {
-      const imageBuffer = Buffer.from(imageData, 'base64');
-      await fs.writeFile(outputPath, imageBuffer);
-      const relativePath = path.relative(this.outputDir, outputPath);
-      const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
-      return { imagePath: outputPath, imageUrl };
-    }
-
-    throw new Error('No image generated in response');
-  }
-
-  async generateCharacterSprites(
-    characterDescription: string,
-    actions: string[],
-    stylePreferences?: StylePreferences,
-    referenceImagePath?: string
-  ): Promise<{ action: string; imagePath: string; imageUrl: string }[]> {
-    const generatedSprites = [];
-
-    for (const action of actions) {
-      const prompt = buildSpritePrompt(characterDescription, action, stylePreferences);
+    try {
+      console.log('Generating character image with:', { characterDescription, stylePreferences, referenceImagePath });
+      
+      const prompt = buildCharacterPrompt(characterDescription, stylePreferences);
+      console.log('Character prompt created');
       
       const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
+      console.log('Calling Gemini API with model:', this.imageGenModelName);
       
       let contents: any[] = [prompt];
       
@@ -124,21 +82,166 @@ export class GameAssetGenerator {
             mimeType: 'image/png'
           }
         });
+        console.log('Reference image added to request');
       }
 
       const result = await model.generateContent(contents);
       const response = await result.response;
+      
+      console.log('API response received, checking for image data...');
+      console.log('Response structure:', JSON.stringify({
+        candidates: response.candidates?.length,
+        firstCandidate: response.candidates?.[0] ? {
+          content: response.candidates[0].content ? {
+            parts: response.candidates[0].content.parts?.length,
+            firstPart: response.candidates[0].content.parts?.[0] ? {
+              hasInlineData: !!response.candidates[0].content.parts[0].inlineData,
+              inlineDataType: response.candidates[0].content.parts[0].inlineData?.mimeType
+            } : null
+          } : null
+        } : null
+      }, null, 2));
 
       const timestamp = Date.now();
-      const filename = `character_${action}_${timestamp}.png`;
+      const filename = `character_${timestamp}.png`;
       const outputPath = path.join(this.characterDir, filename);
 
-      const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      // Try multiple ways to extract image data
+      let imageData: string | undefined;
+      
+      // Method 1: Standard path
+      imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      
+      // Method 2: Check all parts
+      if (!imageData && response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData?.data) {
+            imageData = part.inlineData.data;
+            break;
+          }
+        }
+      }
+      
+      // Method 3: Check all candidates
+      if (!imageData && response.candidates) {
+        for (const candidate of response.candidates) {
+          if (candidate.content?.parts) {
+            for (const part of candidate.content.parts) {
+              if (part.inlineData?.data) {
+                imageData = part.inlineData.data;
+                break;
+              }
+            }
+          }
+          if (imageData) break;
+        }
+      }
+
       if (imageData) {
+        console.log('Image data found, saving to:', outputPath);
         const imageBuffer = Buffer.from(imageData, 'base64');
         await fs.writeFile(outputPath, imageBuffer);
-        const imageUrl = `/api/images/${filename}`;
-        generatedSprites.push({ action, imagePath: outputPath, imageUrl });
+        
+        const relativePath = path.relative(this.outputDir, outputPath);
+        const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
+        
+        console.log('Character image saved successfully');
+        console.log('Output dir:', this.outputDir);
+        console.log('Output path:', outputPath);
+        console.log('Relative path:', relativePath);
+        console.log('Image URL:', imageUrl);
+        
+        return { imagePath: outputPath, imageUrl };
+      }
+
+      console.error('No image data in response:', JSON.stringify(response, null, 2));
+      throw new Error('No image generated in response');
+    } catch (error: any) {
+      console.error('Error in generateCharacterImage:', error);
+      console.error('Error stack:', error.stack);
+      throw error;
+    }
+  }
+
+  async generateCharacterSprites(
+    characterDescription: string,
+    actions: string[],
+    stylePreferences?: StylePreferences,
+    referenceImagePath?: string
+  ): Promise<{ action: string; imagePath: string; imageUrl: string }[]> {
+    const generatedSprites = [];
+
+    for (const action of actions) {
+      try {
+        console.log(`Generating sprite for action: ${action}`);
+        
+        const prompt = buildSpritePrompt(characterDescription, action, stylePreferences);
+        const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
+        
+        let contents: any[] = [prompt];
+        
+        if (referenceImagePath && await fs.pathExists(referenceImagePath)) {
+          const imageBuffer = await fs.readFile(referenceImagePath);
+          const imageBase64 = imageBuffer.toString('base64');
+          contents.push({
+            inlineData: {
+              data: imageBase64,
+              mimeType: 'image/png'
+            }
+          });
+        }
+
+        const result = await model.generateContent(contents);
+        const response = await result.response;
+
+        const timestamp = Date.now();
+        const filename = `character_${action}_${timestamp}.png`;
+        const outputPath = path.join(this.characterDir, filename);
+
+        // Try multiple ways to extract image data
+        let imageData: string | undefined;
+        
+        // Method 1: Standard path
+        imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        
+        // Method 2: Check all parts
+        if (!imageData && response.candidates?.[0]?.content?.parts) {
+          for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData?.data) {
+              imageData = part.inlineData.data;
+              break;
+            }
+          }
+        }
+        
+        // Method 3: Check all candidates
+        if (!imageData && response.candidates) {
+          for (const candidate of response.candidates) {
+            if (candidate.content?.parts) {
+              for (const part of candidate.content.parts) {
+                if (part.inlineData?.data) {
+                  imageData = part.inlineData.data;
+                  break;
+                }
+              }
+            }
+            if (imageData) break;
+          }
+        }
+
+        if (imageData) {
+          const imageBuffer = Buffer.from(imageData, 'base64');
+          await fs.writeFile(outputPath, imageBuffer);
+          const relativePath = path.relative(this.outputDir, outputPath);
+          const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
+          generatedSprites.push({ action, imagePath: outputPath, imageUrl });
+          console.log(`Sprite generated successfully for action: ${action}`);
+        } else {
+          console.error(`No image data in response for action: ${action}`);
+        }
+      } catch (error: any) {
+        console.error(`Error generating sprite for action ${action}:`, error);
+        // Continue with other actions even if one fails
       }
     }
 
@@ -150,26 +253,91 @@ export class GameAssetGenerator {
     orientation: 'landscape' | 'portrait',
     stylePreferences?: StylePreferences
   ): Promise<{ imagePath: string; imageUrl: string }> {
-    const prompt = buildBackgroundPrompt(backgroundDescription, orientation, stylePreferences);
-    
-    const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
-    const result = await model.generateContent([prompt]);
-    const response = await result.response;
+    try {
+      console.log('Generating background image with:', { backgroundDescription, orientation, stylePreferences });
+      
+      const prompt = buildBackgroundPrompt(backgroundDescription, orientation, stylePreferences);
+      console.log('Background prompt created');
+      
+      const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
+      console.log('Calling Gemini API with model:', this.imageGenModelName);
+      
+      const result = await model.generateContent([prompt]);
+      const response = await result.response;
+      
+      console.log('API response received, checking for image data...');
+      console.log('Response structure:', JSON.stringify({
+        candidates: response.candidates?.length,
+        firstCandidate: response.candidates?.[0] ? {
+          content: response.candidates[0].content ? {
+            parts: response.candidates[0].content.parts?.length,
+            firstPart: response.candidates[0].content.parts?.[0] ? {
+              hasInlineData: !!response.candidates[0].content.parts[0].inlineData,
+              inlineDataType: response.candidates[0].content.parts[0].inlineData?.mimeType
+            } : null
+          } : null
+        } : null
+      }, null, 2));
 
-    const timestamp = Date.now();
-    const filename = `background_${orientation}_${timestamp}.png`;
-    const outputPath = path.join(this.backgroundDir, filename);
+      const timestamp = Date.now();
+      const filename = `background_${orientation}_${timestamp}.png`;
+      const outputPath = path.join(this.backgroundDir, filename);
 
-    const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (imageData) {
-      const imageBuffer = Buffer.from(imageData, 'base64');
-      await fs.writeFile(outputPath, imageBuffer);
-      const relativePath = path.relative(this.outputDir, outputPath);
-      const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
-      return { imagePath: outputPath, imageUrl };
+      // Try multiple ways to extract image data
+      let imageData: string | undefined;
+      
+      // Method 1: Standard path
+      imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      
+      // Method 2: Check all parts
+      if (!imageData && response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData?.data) {
+            imageData = part.inlineData.data;
+            break;
+          }
+        }
+      }
+      
+      // Method 3: Check all candidates
+      if (!imageData && response.candidates) {
+        for (const candidate of response.candidates) {
+          if (candidate.content?.parts) {
+            for (const part of candidate.content.parts) {
+              if (part.inlineData?.data) {
+                imageData = part.inlineData.data;
+                break;
+              }
+            }
+          }
+          if (imageData) break;
+        }
+      }
+
+      if (imageData) {
+        console.log('Image data found, saving to:', outputPath);
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        await fs.writeFile(outputPath, imageBuffer);
+        
+        const relativePath = path.relative(this.outputDir, outputPath);
+        const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
+        
+        console.log('Background image saved successfully');
+        console.log('Output dir:', this.outputDir);
+        console.log('Output path:', outputPath);
+        console.log('Relative path:', relativePath);
+        console.log('Image URL:', imageUrl);
+        
+        return { imagePath: outputPath, imageUrl };
+      }
+
+      console.error('No image data in response:', JSON.stringify(response, null, 2));
+      throw new Error('No image generated in response');
+    } catch (error: any) {
+      console.error('Error in generateBackgroundImage:', error);
+      console.error('Error stack:', error.stack);
+      throw error;
     }
-
-    throw new Error('No image generated in response');
   }
 
   async generateItemImage(
@@ -177,40 +345,105 @@ export class GameAssetGenerator {
     stylePreferences?: StylePreferences,
     referenceImagePath?: string
   ): Promise<{ imagePath: string; imageUrl: string }> {
-    const prompt = buildItemPrompt(itemDescription, stylePreferences);
-    
-    const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
-    
-    let contents: any[] = [prompt];
-    
-    if (referenceImagePath && await fs.pathExists(referenceImagePath)) {
-      const imageBuffer = await fs.readFile(referenceImagePath);
-      const imageBase64 = imageBuffer.toString('base64');
-      contents.push({
-        inlineData: {
-          data: imageBase64,
-          mimeType: 'image/png'
+    try {
+      console.log('Generating item image with:', { itemDescription, stylePreferences, referenceImagePath });
+      
+      const prompt = buildItemPrompt(itemDescription, stylePreferences);
+      console.log('Item prompt created');
+      
+      const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
+      console.log('Calling Gemini API with model:', this.imageGenModelName);
+      
+      let contents: any[] = [prompt];
+      
+      if (referenceImagePath && await fs.pathExists(referenceImagePath)) {
+        const imageBuffer = await fs.readFile(referenceImagePath);
+        const imageBase64 = imageBuffer.toString('base64');
+        contents.push({
+          inlineData: {
+            data: imageBase64,
+            mimeType: 'image/png'
+          }
+        });
+        console.log('Reference image added to request');
+      }
+
+      const result = await model.generateContent(contents);
+      const response = await result.response;
+      
+      console.log('API response received, checking for image data...');
+      console.log('Response structure:', JSON.stringify({
+        candidates: response.candidates?.length,
+        firstCandidate: response.candidates?.[0] ? {
+          content: response.candidates[0].content ? {
+            parts: response.candidates[0].content.parts?.length,
+            firstPart: response.candidates[0].content.parts?.[0] ? {
+              hasInlineData: !!response.candidates[0].content.parts[0].inlineData,
+              inlineDataType: response.candidates[0].content.parts[0].inlineData?.mimeType
+            } : null
+          } : null
+        } : null
+      }, null, 2));
+
+      const timestamp = Date.now();
+      const filename = `item_${timestamp}.png`;
+      const outputPath = path.join(this.itemDir, filename);
+
+      // Try multiple ways to extract image data
+      let imageData: string | undefined;
+      
+      // Method 1: Standard path
+      imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      
+      // Method 2: Check all parts
+      if (!imageData && response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData?.data) {
+            imageData = part.inlineData.data;
+            break;
+          }
         }
-      });
+      }
+      
+      // Method 3: Check all candidates
+      if (!imageData && response.candidates) {
+        for (const candidate of response.candidates) {
+          if (candidate.content?.parts) {
+            for (const part of candidate.content.parts) {
+              if (part.inlineData?.data) {
+                imageData = part.inlineData.data;
+                break;
+              }
+            }
+          }
+          if (imageData) break;
+        }
+      }
+
+      if (imageData) {
+        console.log('Image data found, saving to:', outputPath);
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        await fs.writeFile(outputPath, imageBuffer);
+        
+        const relativePath = path.relative(this.outputDir, outputPath);
+        const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
+        
+        console.log('Item image saved successfully');
+        console.log('Output dir:', this.outputDir);
+        console.log('Output path:', outputPath);
+        console.log('Relative path:', relativePath);
+        console.log('Image URL:', imageUrl);
+        
+        return { imagePath: outputPath, imageUrl };
+      }
+
+      console.error('No image data in response:', JSON.stringify(response, null, 2));
+      throw new Error('No image generated in response');
+    } catch (error: any) {
+      console.error('Error in generateItemImage:', error);
+      console.error('Error stack:', error.stack);
+      throw error;
     }
-
-    const result = await model.generateContent(contents);
-    const response = await result.response;
-
-    const timestamp = Date.now();
-    const filename = `item_${timestamp}.png`;
-    const outputPath = path.join(this.itemDir, filename);
-
-    const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (imageData) {
-      const imageBuffer = Buffer.from(imageData, 'base64');
-      await fs.writeFile(outputPath, imageBuffer);
-      const relativePath = path.relative(this.outputDir, outputPath);
-      const imageUrl = `/api/images/${relativePath.replace(/\\/g, '/')}`;
-      return { imagePath: outputPath, imageUrl };
-    }
-
-    throw new Error('No image generated in response');
   }
 
   async generateSpriteAnimation(

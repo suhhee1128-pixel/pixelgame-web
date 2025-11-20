@@ -134,6 +134,15 @@ export default function ItemTab() {
     }
   };
 
+  const downloadImage = (imageUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
@@ -284,11 +293,23 @@ export default function ItemTab() {
         <div>
           <h3 className="text-lg font-semibold mb-2">Generated Item</h3>
           {generatedImage ? (
-            <img
-              src={generatedImage}
-              alt="Generated item"
-              className="w-full rounded-lg border border-gray-300"
-            />
+            <div className="space-y-2">
+              <img
+                src={generatedImage}
+                alt="Generated item"
+                className="w-full rounded-lg border border-gray-300"
+              />
+              <button
+                onClick={() => {
+                  const filename = `item_${Date.now()}.png`;
+                  downloadImage(generatedImage, filename);
+                }}
+                className="w-full py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                title="Download image"
+              >
+                💾 Download Image
+              </button>
+            </div>
           ) : (
             <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
               No item generated yet

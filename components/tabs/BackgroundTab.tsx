@@ -94,6 +94,15 @@ export default function BackgroundTab() {
     }
   };
 
+  const downloadImage = (imageUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const generateBackground = async () => {
     if (!description.trim()) {
       setStatus('Please enter a background description');
@@ -299,11 +308,31 @@ export default function BackgroundTab() {
         <div>
           <h3 className="text-lg font-semibold mb-2">Generated Background</h3>
           {generatedImage ? (
-            <img
-              src={generatedImage}
-              alt="Generated background"
-              className="w-full rounded-lg border border-gray-300"
-            />
+            <div className="space-y-2">
+              <img
+                src={generatedImage}
+                alt="Generated background"
+                className="w-full rounded-lg border border-gray-300"
+                onError={(e) => {
+                  console.error('Image load error:', e);
+                  console.error('Image URL:', generatedImage);
+                  setStatus(`❌ Failed to load image: ${generatedImage}`);
+                }}
+                onLoad={() => {
+                  console.log('Image loaded successfully:', generatedImage);
+                }}
+              />
+              <button
+                onClick={() => {
+                  const filename = `background_${Date.now()}.png`;
+                  downloadImage(generatedImage, filename);
+                }}
+                className="w-full py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                title="Download image"
+              >
+                💾 Download Image
+              </button>
+            </div>
           ) : (
             <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
               No background generated yet

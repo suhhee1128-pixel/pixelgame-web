@@ -8,8 +8,9 @@ export interface StylePreferences {
   additional_notes?: string;
 }
 
-export interface ConfigData extends StylePreferences {
+export interface ConfigData {
   name: string;
+  data: StylePreferences;
   created_at?: string;
   updated_at?: string;
 }

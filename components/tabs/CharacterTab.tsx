@@ -138,6 +138,15 @@ export default function CharacterTab() {
     }
   };
 
+  const downloadImage = (imageUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const flipImage = () => {
     // Image manipulation would be done on server side
     setStatus('Image manipulation feature coming soon');
@@ -311,6 +320,16 @@ export default function CharacterTab() {
                 alt="Generated character"
                 className="w-full rounded-lg border border-gray-300"
               />
+              <button
+                onClick={() => {
+                  const filename = `character_${Date.now()}.png`;
+                  downloadImage(generatedImage, filename);
+                }}
+                className="w-full py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                title="Download image"
+              >
+                💾 Download Image
+              </button>
               <div className="flex gap-2">
                 <button
                   onClick={flipImage}

@@ -68,8 +68,18 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error generating sprites:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      cause: error.cause
+    });
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to generate sprites' },
+      { 
+        success: false, 
+        error: error.message || 'Failed to generate sprites',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

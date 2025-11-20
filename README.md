@@ -1,4 +1,4 @@
-# 2D Game Asset Generator 🎮✨
+# 2D Game Asset Generator (Next.js) 🎮✨
 
 AI-powered 2D game asset generation tool! Create characters, backgrounds, items, and all the assets you need for 2D games using Google's Gemini AI models.
 
@@ -9,47 +9,41 @@ AI-powered 2D game asset generation tool! Create characters, backgrounds, items,
 - **🏃 Sprite Generation**: Batch generate multiple action sprites for characters
 - **⚙️ Configuration Management**: Save and reuse frequently used style settings
 - **🖼️ Reference Images**: Upload reference images for consistent character design
-- **🖥️ Web Interface**: User-friendly Gradio interface
+- **🖥️ Modern Web Interface**: Beautiful Next.js web application
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11 or higher
+- Node.js 18 or higher
+- npm or yarn
 - Google Gemini API key
-- UV package manager (recommended) or pip
 
 ### Installation
 
-1. **Clone the repository**
+1. **Install dependencies**
    ```bash
-   git clone https://github.com/HenryKang1/Sprite_generator1.git
-   cd Sprite_generator
+   npm install
+   # or
+   yarn install
    ```
 
-2. **Install dependencies**
-   ```bash
-   # Using UV (recommended)
-   uv sync
+2. **Set up environment variables**
+   Create a `.env.local` file in the root directory:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   OUTPUT_DIR=data/output
+   IMAGE_MODEL_NAME=gemini-2.5-flash-image-preview
    ```
 
-3. **Set up environment variables**
+3. **Run the development server**
    ```bash
-   # Method 1: Copy .env_example file (Recommended)
-   copy .env_example .env
-   
-   # Method 2: Create .env file directly
-   echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
-   ```
-   
-   **Important**: Change `GEMINI_API_KEY` to your actual API key in the `.env` file!
-
-4. **Run the application**
-   ```bash
-   uv run game_asset_app.py
+   npm run dev
+   # or
+   yarn dev
    ```
 
-5. **Access the interface**
-   Open your browser and navigate to `http://localhost:7861`
+4. **Access the application**
+   Open your browser and navigate to `http://localhost:5001`
 
 ## 📖 Usage Guide
 
@@ -90,30 +84,34 @@ AI-powered 2D game asset generation tool! Create characters, backgrounds, items,
 ## 🏗️ Project Structure
 
 ```
-Sprite_generator/
-├── game_asset_app.py      # Main Gradio interface
-├── game_asset_generator.py # Core game asset generation logic
-├── config_manager.py      # Configuration management module
-├── utils.py              # Utility functions and style options
-├── pyproject.toml        # Project configuration
-├── .env                  # Environment variables (create this)
-├── data/
+pixelgame/
+├── app/                    # Next.js App Router
+│   ├── api/               # API Routes
+│   │   ├── generate/     # Generation endpoints
+│   │   ├── config/       # Configuration endpoints
+│   │   ├── images/       # Image serving
+│   │   └── prompt/       # Prompt preview
+│   ├── layout.tsx        # Root layout
+│   ├── page.tsx          # Main page
+│   └── globals.css       # Global styles
+├── components/            # React components
+│   └── tabs/             # Tab components
+├── lib/                   # Utilities and libraries
+│   ├── types.ts          # TypeScript types
+│   ├── utils.ts          # Utility functions
+│   ├── game-asset-generator.ts  # Generator class
+│   └── config-manager.ts # Configuration manager
+├── data/                  # Data directory
 │   ├── output/           # Generated assets
-│   │   ├── characters/   # Character images
-│   │   ├── backgrounds/  # Background images
-│   │   ├── items/        # Item images
-│   │   └── references/   # Reference images
-│   ├── configs/          # Saved configurations
-│   │   └── saved_configs.json
-│   └── examples/         # Example files
-└── README.md
+│   └── configs/         # Saved configurations
+└── package.json
 ```
 
 ## 🛠️ Configuration
 
 ### Environment Variables
 
-Create a `.env` file and set the following variables:
+Create a `.env.local` file and set the following variables:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -126,7 +124,7 @@ IMAGE_MODEL_NAME=gemini-2.5-flash-image-preview
 1. **Get Gemini API Key**:
    - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Create a new API key
-   - Add it to your `.env` file
+   - Add it to your `.env.local` file
 
 ## 🎨 Style Options
 
@@ -144,14 +142,12 @@ Choose from various art styles, moods, color palettes, character styles, and com
 - **Configuration Management**: Save and reuse frequently used style settings
 - **Batch Generation**: Generate multiple action sprites at once
 
-## 📋 Usage Examples
+## 📋 Build for Production
 
-You can use this tool to generate game assets for various game types:
-
-1. **RPG Games**: Warriors, mages, archers, and their weapons and armor
-2. **Platformer Games**: Action sprites for jumping, running, attacking, etc.
-3. **Puzzle Games**: Various items and background elements
-4. **Adventure Games**: Environmental backgrounds and interactive objects
+```bash
+npm run build
+npm start
+```
 
 ## 🤝 Contributing
 
@@ -165,12 +161,6 @@ If you'd like to contribute to this project:
 
 ## 📄 License
 
-This project is distributed under the MIT License. See the `LICENSE` file for more details.
-
-## 🙏 Acknowledgments
-
-- Google Gemini AI models
-- Gradio team
-- All contributors
+This project is distributed under the MIT License.
 
 *Transform your imagination into 2D game assets with the power of AI!*

@@ -43,3 +43,8 @@ next-env.d.ts
 !/data/output/.gitkeep
 /data/configs/*
 !/data/configs/.gitkeep
+
+# generated images in root directory (should be in data/output)
+/*.png
+/*.jpg
+/*.jpeg

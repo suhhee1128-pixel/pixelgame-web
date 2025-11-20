@@ -98,6 +98,15 @@ export default function CharacterSpritesTab() {
     }
   };
 
+  const downloadImage = (imageUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const generateSprites = async () => {
     if (!description.trim() || !actionsText.trim()) {
       setStatus('Please enter character description and actions');
@@ -314,15 +323,24 @@ export default function CharacterSpritesTab() {
         <div>
           <h3 className="text-lg font-semibold mb-2">Generated Sprites</h3>
           {generatedSprites.length > 0 ? (
-            <div className="grid grid-cols-2 gap-2">
-              {generatedSprites.map((sprite, index) => (
-                <img
-                  key={index}
-                  src={sprite}
-                  alt={`Sprite ${index + 1}`}
-                  className="w-full rounded-lg border border-gray-300"
-                />
-              ))}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {generatedSprites.map((sprite, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={sprite}
+                      alt={`Sprite ${index + 1}`}
+                      className="w-full rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        const filename = `sprite_${index + 1}_${Date.now()}.png`;
+                        downloadImage(sprite, filename);
+                      }}
+                      title="Click to download"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 text-center">💡 Click on any sprite to download</p>
             </div>
           ) : (
             <div className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-400">
