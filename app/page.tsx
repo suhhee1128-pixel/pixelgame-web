@@ -9,7 +9,7 @@ export default function Home() {
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: 'url(/home-background.png)',
+          backgroundImage: 'url(/background-high-quality.png)',
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/45"></div>
@@ -19,224 +19,56 @@ export default function Home() {
       <div className="relative z-10 min-h-screen w-full py-6" style={{ paddingLeft: '120px', paddingRight: '120px' }}>
         {/* Grid Container - 5 columns with 20px gutter */}
         <div className="w-full grid gap-[20px]" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-          {/* Top Navigation Bar - spans all 5 columns */}
-          <div className="col-span-5 flex items-center justify-between py-6">
-            {/* Left: Logo and Navigation */}
-            <div className="flex gap-[44px] items-center">
-              <p 
-                className="text-[21px] leading-normal text-white whitespace-nowrap"
-                style={{
-                  fontFamily: 'Merriweather Sans, sans-serif',
-                  fontWeight: 'bold',
-                }}
-              >
-                pic.ai
-              </p>
-              <div 
-                className="flex gap-[17px] items-center text-[16px] leading-normal text-white whitespace-nowrap"
-                style={{ fontFamily: 'Merriweather Sans, sans-serif' }}
-              >
-                <Link href="#" className="hover:opacity-80 transition-opacity">pricing</Link>
-                <Link href="#" className="hover:opacity-80 transition-opacity">pricing</Link>
-                <Link href="#" className="hover:opacity-80 transition-opacity">pricing</Link>
-              </div>
-            </div>
-
-            {/* Right: Sign In Button */}
-            <div 
-              className="pixel-button px-[20px] py-[10px] flex items-center justify-center"
-              style={{ 
-                fontFamily: 'Galmuri11, monospace',
-                backgroundColor: '#fff57b',
-                border: '3px solid black',
-                borderRadius: '0',
-                imageRendering: 'pixelated',
-                cursor: 'pointer'
-              }}
-            >
-              <p 
-                className="pixel-text text-[13px] leading-normal text-black text-center whitespace-nowrap font-bold"
-                style={{ 
-                  fontFamily: 'Galmuri11, monospace',
-                  imageRendering: 'pixelated'
-                }}
-              >
-                Sign In
-              </p>
-            </div>
-          </div>
 
           {/* Spacer - Reduced gap between nav and content */}
           <div className="col-span-5" style={{ height: '80px' }}></div>
 
           {/* Main Content - spans columns 2-4 (middle 3 columns) */}
-          <div className="col-start-2 col-end-5 flex flex-col gap-[60px] items-center">
-            {/* Header Title Section */}
-            <div className="flex flex-col gap-[20px] items-center text-center w-full">
-              {/* Subtitle */}
-              <p 
-                className="pixel-text text-sm mb-2"
+          <div className="col-start-2 col-end-5 flex flex-col items-center h-[85vh] pb-20 relative">
+            {/* Title Image - Centered */}
+            <div className="absolute top-[30%] -translate-y-1/2 flex flex-col items-center gap-8">
+              <img 
+                src="/start-game-title-v2.png" 
+                alt="Start Game" 
                 style={{ 
-                  color: 'black',
-                  fontFamily: 'Galmuri11, monospace',
-                  imageRendering: 'pixelated'
-                }}
-              >
-                [ AI 2D GAME ASSET GENERATOR ]
-              </p>
-
-              {/* Main Title - pic.ai */}
-              <h1 
-                className="pixel-text text-6xl md:text-8xl font-bold"
-                style={{ 
-                  color: 'black',
-                  textShadow: '3px 3px 0px #FFA500, 4px 4px 0px #FFD700',
-                  fontFamily: 'Galmuri11, monospace',
-                  imageRendering: 'pixelated'
-                }}
-              >
-                pic.ai
-              </h1>
-              
-              {/* with pills */}
-              <div className="flex items-center gap-4 relative">
-                {/* Left side pill */}
-                <img 
-                  src="/pill-icon.png" 
-                  alt="Pill icon"
-                  style={{
-                    width: '60px',
-                    height: '30px',
-                    imageRendering: 'pixelated',
-                    imageRendering: '-moz-crisp-edges',
-                    imageRendering: 'crisp-edges',
-                    objectFit: 'contain',
-                    transform: 'rotate(-15deg)'
-                  }}
-                />
-                
-                <p 
-                  className="pixel-text text-2xl md:text-3xl"
-                  style={{ 
-                    color: 'black',
-                    fontFamily: 'Galmuri11, monospace',
-                    imageRendering: 'pixelated',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  with
-                </p>
-                
-                {/* Right side pill */}
-                <img 
-                  src="/pill-icon.png" 
-                  alt="Pill icon"
-                  style={{
-                    width: '60px',
-                    height: '30px',
-                    imageRendering: 'pixelated',
-                    imageRendering: '-moz-crisp-edges',
-                    imageRendering: 'crisp-edges',
-                    objectFit: 'contain',
-                    transform: 'rotate(15deg) scaleX(-1)'
-                  }}
-                />
-              </div>
-              
-              {/* PIXEL ART */}
-              <h2 
-                className="pixel-text text-5xl md:text-7xl font-bold"
-                style={{ 
-                  color: 'black',
-                  textShadow: '2px 2px 0px rgba(128, 128, 128, 0.8)',
-                  fontFamily: 'Galmuri11, monospace',
-                  imageRendering: 'pixelated'
-                }}
-              >
-                PIXEL ART
-              </h2>
-            </div>
-
-            {/* Title and Description */}
-            <div className="flex flex-col gap-[26px] items-center text-center text-white w-full">
-              {/* Subtitle - 16px (24px * 2/3) */}
-              <div 
-                className="pixel-text text-[16px] leading-normal text-white"
-                style={{ 
-                  fontFamily: 'Galmuri11, monospace',
-                  letterSpacing: '2px',
-                  imageRendering: 'pixelated'
-                }}
-              >
-                <p className="mb-0">Create characters, backgrounds, items, and all the assets you need</p>
-                <p>for your 2D games using AI.</p>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-[22px] items-center">
-              {/* START button - Pixel Style */}
-              <Link
-                href="/generator"
-                className="pixel-button flex items-center justify-center gap-[10px] px-[36px] py-[18px] h-[56px] hover:scale-105 transition-transform"
-                style={{ 
-                  fontFamily: 'Galmuri11, monospace',
-                  backgroundColor: '#4CAF50',
-                  border: '4px solid black',
-                  borderRadius: '0',
-                  boxShadow: '6px 6px 0px rgba(0, 0, 0, 0.3)',
+                  width: '700px',
+                  height: 'auto',
                   imageRendering: 'pixelated',
-                  color: 'white',
-                  textShadow: '2px 2px 0px rgba(0, 0, 0, 0.5)'
-                }}
-              >
-                <p className="pixel-text text-[16px] leading-normal text-center whitespace-nowrap font-bold">
-                  START!
-                </p>
-              </Link>
-
-              {/* Join Discord button */}
-              <a
-                href="https://discord.gg"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[rgba(255,255,255,0.15)] border border-white rounded-[8px] hover:bg-[rgba(255,255,255,0.25)] transition-colors flex items-center justify-center gap-[10px] px-[36px] py-[18px] h-[56px]"
+                  filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
+                }} 
+              />
+              <img 
+                src="/welcome-image.png" 
+                alt="Welcome" 
                 style={{ 
-                  fontFamily: 'Merriweather Sans, sans-serif'
-                }}
-              >
-                {/* Game icon */}
-                <img 
-                  src="/images/game-icon.png" 
-                  alt="Game icon" 
-                  className="w-[22px] h-[22px]"
-                />
-                <p className="text-[16px] leading-normal text-white text-center whitespace-nowrap font-normal">
-                  Join Discord
-                </p>
-              </a>
+                  width: '500px',
+                  height: 'auto',
+                  imageRendering: 'pixelated',
+                  filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
+                }} 
+              />
             </div>
 
-            {/* Scroll Indicator Arrow - rotated 270deg */}
-            <div className="flex items-center justify-center">
-              <div className="rotate-[270deg]">
-                <svg 
-                  className="w-[36px] h-[36px] text-white" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                  style={{ opacity: 0.4 }}
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M15 19l-7-7 7-7" 
-                  />
-                </svg>
-              </div>
+            {/* Start Button - Bottom */}
+            <div className="mt-auto">
+              <Link 
+                href="/generator" 
+                className="hover:scale-105 transition-transform duration-200 active:scale-95 block"
+              >
+                <img 
+                  src="/start-button-cropped.png" 
+                  alt="START" 
+                  style={{ 
+                    width: '380px',
+                    height: 'auto',
+                    imageRendering: 'pixelated',
+                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
+                  }} 
+                />
+              </Link>
             </div>
           </div>
+
         </div>
         
         {/* Spacer before Features Section */}
