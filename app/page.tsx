@@ -50,7 +50,7 @@ export default function Home() {
             </div>
 
             {/* Start Button - Bottom */}
-            <div className="mt-auto">
+            <div className="mt-auto mb-10">
               <Link 
                 href="/generator" 
                 className="hover:scale-105 transition-transform duration-200 active:scale-95 block"
@@ -59,7 +59,7 @@ export default function Home() {
                   src="/start-button-cropped.png" 
                   alt="START" 
                   style={{ 
-                    width: '380px',
+                    width: '320px',
                     height: 'auto',
                     imageRendering: 'pixelated',
                     filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'

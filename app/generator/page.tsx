@@ -10,9 +10,10 @@ import ItemTab from '@/components/tabs/ItemTab';
 import PixelCharacterTab from '@/components/tabs/PixelCharacterTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
 import GameTab from '@/components/tabs/GameTab';
+import BattleTab from '@/components/tabs/BattleTab';
 import Link from 'next/link';
 
-type TabType = 'character' | 'sprites' | 'sprite-images' | 'dead-sprite' | 'background' | 'item' | 'pixel-character' | 'settings' | 'game';
+type TabType = 'character' | 'sprites' | 'sprite-images' | 'dead-sprite' | 'background' | 'item' | 'pixel-character' | 'settings' | 'game' | 'battle';
 
 export default function GeneratorPage() {
   const [activeTab, setActiveTab] = useState<TabType>('pixel-character');
@@ -26,6 +27,7 @@ export default function GeneratorPage() {
     { id: 'background' as TabType, label: '🌄 Background Generation', icon: '🌄' },
     { id: 'item' as TabType, label: '🧰 Item Generation', icon: '🧰' },
     { id: 'game' as TabType, label: '🕹️ Game', icon: '🕹️' },
+    { id: 'battle' as TabType, label: '⚔️ Battle', icon: '⚔️' },
     { id: 'settings' as TabType, label: '⚙️ Setting', icon: '⚙️' },
   ];
 
@@ -76,6 +78,7 @@ export default function GeneratorPage() {
             {activeTab === 'item' && <ItemTab />}
             {activeTab === 'pixel-character' && <PixelCharacterTab />}
             {activeTab === 'game' && <GameTab />}
+            {activeTab === 'battle' && <BattleTab />}
             {activeTab === 'settings' && <SettingsTab />}
           </div>
         </div>

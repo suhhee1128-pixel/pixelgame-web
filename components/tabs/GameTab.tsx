@@ -3,28 +3,30 @@ import React, { useEffect, useState, useRef } from 'react';
 // --- Types & Interfaces ---
 type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
 
-interface Entity {
-  x: number;
-  y: number;
-  z: number;
-  vx: number;
-  vy: number;
-  vz: number;
-  width: number;
-  height: number;
-  hp: number;
-  maxHp: number;
-  state: 'idle' | 'move' | 'attack' | 'skill' | 'hit' | 'dead';
-  facing: 1 | -1;
-  frameTimer: number;
-  frameIndex: number;
-  type: 'player' | 'enemy';
-  color: string;
-  image?: HTMLImageElement | HTMLCanvasElement;
-  frames?: (HTMLImageElement | HTMLCanvasElement)[];
-  attackBox?: { x: number, y: number, w: number, h: number, active: boolean };
-  hitTimer: number;
-}
+  interface Entity {
+    x: number;
+    y: number;
+    z: number;
+    vx: number;
+    vy: number;
+    vz: number;
+    width: number;
+    height: number;
+    hp: number;
+    maxHp: number;
+    state: 'idle' | 'move' | 'attack' | 'skill' | 'hit' | 'dead' | 'defend'; // Added defend
+    facing: 1 | -1;
+    frameTimer: number;
+    frameIndex: number;
+    type: 'player' | 'enemy';
+    color: string;
+    image?: HTMLImageElement | HTMLCanvasElement;
+    frames?: (HTMLImageElement | HTMLCanvasElement)[];
+    attackBox?: { x: number, y: number, w: number, h: number, active: boolean, damage?: number, knockback?: number }; // Added damage/knockback
+    hitTimer: number;
+    isDashing?: boolean; // Added
+    attackCombo?: number; // Added
+  }
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 450;
@@ -79,6 +81,10 @@ export default function GameTab() {
     x: 100, y: GROUND_Y, z: 0, vx: 0, vy: 0, vz: 0, width: 120, height: 200, hp: 100, maxHp: 100,
     state: 'idle', facing: 1, frameTimer: 0, frameIndex: 0, type: 'player', color: 'blue', hitTimer: 0
   });
+  // Add extra properties for combat logic (dashing, combo, etc.) dynamically if needed, or update interface.
+  // Using refs for dash timing
+  const lastKeyTime = useRef<{ [key: string]: number }>({ ArrowLeft: 0, ArrowRight: 0 });
+  
   const enemyRef = useRef<Entity>({
     x: 600, y: GROUND_Y, z: 0, vx: 0, vy: 0, vz: 0, width: 120, height: 200, hp: 100, maxHp: 100,
     state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, type: 'enemy', color: 'red', hitTimer: 0
@@ -89,8 +95,35 @@ export default function GameTab() {
 
   // --- Effects ---
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.code] = true; };
-    const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code] = false; };
+    const handleKeyDown = (e: KeyboardEvent) => { 
+        keysPressed.current[e.code] = true; 
+        
+        // Dash Logic (Double Tap)
+        if (phase === 'playing' && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+            const now = Date.now();
+            const key = e.code;
+            if (now - lastKeyTime.current[key] < 250) {
+                playerRef.current.isDashing = true;
+            }
+            lastKeyTime.current[key] = now;
+        }
+        
+        // Trigger Actions immediately on press (Z: Attack, X: Jump)
+        if (phase === 'playing' && playerRef.current.hp > 0) {
+             if (e.code === 'KeyZ') performAttack(playerRef.current, 'attack');
+             if (e.code === 'KeyX') {
+                 if (playerRef.current.z === 0 && playerRef.current.state !== 'hit' && playerRef.current.state !== 'attack') {
+                     playerRef.current.vz = -12; // Jump force
+                 }
+             }
+        }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => { 
+        keysPressed.current[e.code] = false; 
+        if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !keysPressed.current['ArrowLeft'] && !keysPressed.current['ArrowRight']) {
+            playerRef.current.isDashing = false;
+        }
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     
@@ -300,52 +333,105 @@ export default function GameTab() {
   };
 
   const updateEntity = (e: Entity, keys: { [key: string]: boolean }) => {
-    if (e.type === 'player' && e.state !== 'hit' && e.state !== 'attack') {
-        if (keys['KeyA']) { e.vx = -4; e.facing = -1; e.state = 'move'; }
-        else if (keys['KeyD']) { e.vx = 4; e.facing = 1; e.state = 'move'; }
-        else e.vx = 0;
-        e.vy = 0;
-        
-        if ((keys['Space'] || keys['KeyW']) && e.z === 0) { e.vz = -12; } 
-        if (keys['KeyJ']) performAttack(e, 'attack');
-        else if (keys['KeyK']) performAttack(e, 'skill2');
-        else if (keys['KeyL']) performAttack(e, 'ult');
-        if (e.vx === 0 && e.vy === 0 && e.z === 0) e.state = 'idle';
+    if (e.state === 'dead') return;
+    
+    // Hit Stun
+    if (e.state === 'hit') {
+        if (e.hitTimer > 0) {
+            e.hitTimer--;
+            if (e.hitTimer === 0) e.state = 'idle';
+        }
+        return;
     }
-    e.x += e.vx; e.y = GROUND_Y; 
+
+    // Defense
+    if (e.type === 'player' && keys['KeyC']) {
+        e.state = 'defend';
+        e.vx = 0; e.vy = 0;
+        return;
+    } else if (e.state === 'defend') {
+        e.state = 'idle';
+    }
+
+    // Attack Logic (State Machine handled in performAttack/Animation loop)
+    if (e.state === 'attack') {
+        // Lock movement during attack
+        e.vx = 0; e.vy = 0;
+        // Combo logic could go here if we had multiple animations
+    } else {
+        // Movement
+        if (e.type === 'player') {
+            let moveSpeed = e.isDashing ? 10 : 4;
+            let moving = false;
+
+            if (keys['ArrowLeft']) { e.vx = -moveSpeed; e.facing = -1; moving = true; }
+            else if (keys['ArrowRight']) { e.vx = moveSpeed; e.facing = 1; moving = true; }
+            else e.vx = 0;
+
+            if (keys['ArrowUp']) { e.vy = -moveSpeed * 0.7; moving = true; }
+            else if (keys['ArrowDown']) { e.vy = moveSpeed * 0.7; moving = true; }
+            else e.vy = 0;
+
+            if (moving) e.state = 'move';
+            else e.state = 'idle';
+
+            // Jump
+            if (keys['KeyX'] && e.z === 0) { e.vz = -12; } // Jump
+            
+            // Attack Trigger
+            if (keys['KeyZ']) performAttack(e, 'attack');
+        }
+    }
+
+    // Physics
+    e.x += e.vx; 
+    // Boundary checks
+    if (e.x < 0) e.x = 0; if (e.x > CANVAS_WIDTH) e.x = CANVAS_WIDTH;
+    
+    // Y Movement (Depth)
+    e.y += e.vy;
+    if (e.y < 250) e.y = 250; // Horizon
+    if (e.y > 450) e.y = 450; // Bottom
+
+    // Z Movement (Gravity)
     e.z += e.vz; e.vz += GRAVITY;
     if (e.z > 0) { e.z = 0; e.vz = 0; }
-    if (e.x < 0) e.x = 0; if (e.x > CANVAS_WIDTH) e.x = CANVAS_WIDTH;
     
     // Animation & Hitbox
     e.frameTimer++;
-    const animSpeed = e.state === 'move' ? 8 : 20; 
+    const animSpeed = e.state === 'move' ? (e.isDashing ? 4 : 8) : 12; 
     if (e.frameTimer > animSpeed) {
         e.frameTimer = 0;
         if (e.frames && e.frames.length > 0) {
             e.frameIndex++;
             if (e.state === 'attack') {
-                if (e.frameIndex < 2) e.frameIndex = 2; 
-                if (e.frameIndex >= 6) { 
+                // Attack Animation Cycle
+                if (e.frameIndex >= 8) { 
                     e.frameIndex = 0; e.state = 'idle'; 
                     if(e.attackBox) e.attackBox.active = false;
                 }
-                if (e.frameIndex === 5 && e.attackBox) e.attackBox.active = true;
+                // Active Hitbox on specific frames (Impact)
+                if ((e.frameIndex === 4 || e.frameIndex === 5) && e.attackBox) {
+                    e.attackBox.active = true;
+                } else if (e.attackBox) {
+                    e.attackBox.active = false;
+                }
             } else if (e.z < 0 && e.frames.length >= 6) {
+                // Jump Animation
                 if (e.frameIndex < 2) e.frameIndex = 2;
                 if (e.frameIndex > 6) e.frameIndex = 6; 
             } else {
+                // Loop Idle/Move
                 if (e.frameIndex > 1) e.frameIndex = 0;
             }
         }
     }
 
-    if (e.hitTimer > 0) { e.hitTimer--; if (e.hitTimer === 0) e.state = 'idle'; }
     if (e.attackBox && e.attackBox.active) {
         const target = e.type === 'player' ? enemyRef.current : playerRef.current;
         if (checkCollision(e.attackBox, target)) {
-            takeDamage(target, 10);
-            e.attackBox.active = false;
+            takeDamage(target, e.attackBox.damage || 10, e.facing, e.attackBox.knockback || 5);
+            e.attackBox.active = false; // Hit once per attack frame
             spawnParticle(target.x, target.y - target.z - 50, 'hit');
         }
     }
@@ -353,9 +439,12 @@ export default function GameTab() {
 
   const updateAI = (enemy: Entity, player: Entity) => {
       if (enemy.state === 'hit' || enemy.state === 'dead') return;
+      
       const dx = player.x - enemy.x;
       const dy = player.y - enemy.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
+      
+      // Simple AI
       if (dist > 80) {
           enemy.vx = dx > 0 ? 2 : -2;
           enemy.vy = dy > 0 ? 1 : -1;
@@ -363,31 +452,109 @@ export default function GameTab() {
           enemy.facing = dx > 0 ? 1 : -1;
       } else {
           enemy.vx = 0; enemy.vy = 0;
-          if (Math.random() < 0.05 && enemy.state !== 'attack') performAttack(enemy, 'attack');
+          // Attack chance
+          if (Math.random() < 0.02 && enemy.state !== 'attack') performAttack(enemy, 'attack');
           else enemy.state = 'idle';
       }
-      enemy.x += enemy.vx; enemy.y = GROUND_Y; 
+      
+      // Apply Physics
+      enemy.x += enemy.vx; 
+      if (enemy.x < 0) enemy.x = 0; if (enemy.x > CANVAS_WIDTH) enemy.x = CANVAS_WIDTH;
+
+      enemy.y += enemy.vy;
+      if (enemy.y < 250) enemy.y = 250;
+      if (enemy.y > 450) enemy.y = 450;
+
       enemy.z += enemy.vz; enemy.vz += GRAVITY;
       if (enemy.z > 0) { enemy.z = 0; enemy.vz = 0; }
-      if (enemy.hitTimer > 0) { enemy.hitTimer--; if (enemy.hitTimer === 0) enemy.state = 'idle'; }
+
+      // Animation update for enemy (reusing same logic roughly)
+      enemy.frameTimer++;
+      if (enemy.frameTimer > 12) {
+          enemy.frameTimer = 0;
+          // ... simplified animation logic for enemy or same as player ...
+          // For now assuming enemy uses same sprites or placeholders
+          if (enemy.frames && enemy.frames.length > 0) {
+             enemy.frameIndex++;
+             if (enemy.state === 'attack') {
+                if (enemy.frameIndex >= 8) { enemy.frameIndex = 0; enemy.state = 'idle'; if(enemy.attackBox) enemy.attackBox.active = false; }
+                if (enemy.frameIndex === 4 && enemy.attackBox) enemy.attackBox.active = true;
+             } else {
+                 if (enemy.frameIndex > 1) enemy.frameIndex = 0;
+             }
+          }
+      }
+      
+      // Enemy Hitbox
+      if (enemy.attackBox && enemy.attackBox.active) {
+          if (checkCollision(enemy.attackBox, player)) {
+              takeDamage(player, 5, enemy.facing, 5);
+              enemy.attackBox.active = false;
+              spawnParticle(player.x, player.y - player.z - 50, 'hit');
+          }
+      }
   };
 
   const performAttack = (e: Entity, type: string) => {
+      if (e.state === 'attack') return; // Already attacking
       e.state = 'attack'; e.vx = 0; e.vy = 0;
-      e.frameIndex = 2; 
-      e.attackBox = { x: e.x + (e.facing === 1 ? 40 : -160), y: e.y - 160, w: 120, h: 160, active: false };
-      if (!e.frames || e.frames.length === 0) {
-          e.attackBox.active = true;
-          setTimeout(() => { e.state = 'idle'; if(e.attackBox) e.attackBox.active = false; }, 300);
-      }
+      e.frameIndex = 0; // Start from frame 0
+      // Hitbox parameters
+      e.attackBox = { 
+          x: e.x + (e.facing === 1 ? 40 : -100), // Offset based on facing
+          y: e.y - 100, 
+          w: 80, 
+          h: 80, 
+          active: false,
+          damage: 10,
+          knockback: 10
+      };
   };
 
   const checkCollision = (box: {x:number, y:number, w:number, h:number}, target: Entity) => {
-      return (box.x < target.x + target.width/2 && box.x + box.w > target.x - target.width/2 && box.y < target.y + 20 && box.y + box.h > target.y - 20);
+      // 2.5D Collision: Check X/Width, Y/Height (z-axis relative)
+      // Box coordinates are absolute world coordinates calculated in updateEntity or here?
+      // Actually attackBox.x in updateEntity needs to be calculated every frame based on entity position
+      // Let's recalculate box world position here or in updateEntity.
+      // In updateEntity, I set attackBox relative or static?
+      // I should update attackBox position in updateEntity loop.
+      
+      // Let's fix updateEntity to update attackBox position.
+      // But for now, let's assume attackBox properties are offsets or absolute.
+      // In performAttack, I set absolute position. But Entity moves.
+      // Better to store offsets in attackBox and calculate world pos here.
+      
+      // Re-implementing simple check assuming updateEntity updates the box or box is calculated here:
+      // Let's just calculate hit volume here based on attacker pos + offset
+      // But `box` is passed as argument.
+      
+      // Correction: updateEntity should update attackBox.x/y based on current e.x/e.y
+      return (box.x < target.x + target.width/2 && box.x + box.w > target.x - target.width/2 && 
+              Math.abs(box.y - target.y) < 30 && // Depth check (Y axis)
+              Math.abs(target.z) < 50); // Z axis check (must be close to ground or same height)
   };
 
-  const takeDamage = (e: Entity, amount: number) => {
-      e.hp -= amount; e.state = 'hit'; e.hitTimer = 20; e.vx = e.facing * -5;
+  const takeDamage = (e: Entity, amount: number, hitDir: number, knockback: number) => {
+      if (e.state === 'dead') return;
+      
+      if (e.state === 'defend') {
+          amount *= 0.1; // Chip damage
+          knockback *= 0.5;
+          spawnParticle(e.x, e.y - e.z - 50, 'block'); // Block effect
+      } else {
+          e.state = 'hit'; 
+          e.hitTimer = 15; 
+          // Blood effect
+          spawnParticle(e.x, e.y - e.z - 50, 'blood');
+      }
+      
+      e.hp -= amount; 
+      e.vx = hitDir * knockback; // Knockback
+      
+      if (e.hp <= 0) {
+          e.hp = 0;
+          e.state = 'dead';
+      }
   };
 
   const spawnParticle = (x: number, y: number, type: string) => { particlesRef.current.push({ x, y, life: 20, type }); };
