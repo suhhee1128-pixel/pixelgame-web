@@ -44,6 +44,13 @@ export default function BattleTab() {
         let stageW = 3000;
         let wave = 0;
         let shakeFrames = 0;
+        let playerImg: any = null;
+
+        // --- PRELOAD ---
+        p.preload = () => {
+            // Load character image
+            playerImg = p.loadImage('/character_balckno.png');
+        };
 
         // Key States
         let keys: { [key: string]: boolean } = {
@@ -335,91 +342,110 @@ export default function BattleTab() {
             p.ellipse(0, this.pos.z, 40, 10);
             p.scale(this.dir, 1);
 
-            // Stickman Drawing (6-head tall approx 90px height)
-            p.stroke(this.color);
-            p.strokeWeight(4);
-            p.noFill();
-            let t = this.animFrame;
-            
-            // --- ANIMATION POSES ---
-            
-            // Default Joint Positions
-            let head = p.createVector(0, -90);
-            let neck = p.createVector(0, -75);
-            let pelvis = p.createVector(0, -40);
-            let kneeL = p.createVector(-10, -20);
-            let footL = p.createVector(-15, 0);
-            let kneeR = p.createVector(10, -20);
-            let footR = p.createVector(15, 0);
-            let elbowL = p.createVector(-15, -60);
-            let handL = p.createVector(-20, -45);
-            let elbowR = p.createVector(15, -60);
-            let handR = p.createVector(20, -45);
+            if (this.isPlayer && playerImg) {
+                // Draw Image Character
+                p.imageMode(p.CENTER);
+                let w = 100; 
+                let h = 100; 
+                // Simple bobbing animation
+                let bob = (this.state === "IDLE") ? Math.sin(this.animFrame) * 2 : 0;
+                
+                p.image(playerImg, 0, -50 + bob, w, h);
+                
+                // Overlay color tint if needed (e.g. HURT)
+                if (this.state === "HURT" || this.dead) {
+                    p.fill(255, 0, 0, 100);
+                    p.noStroke();
+                    p.rectMode(p.CENTER);
+                    p.rect(0, -50, w, h);
+                }
+            } else {
+                // Stickman Drawing (6-head tall approx 90px height) for Enemy
+                p.stroke(this.color);
+                p.strokeWeight(4);
+                p.noFill();
+                let t = this.animFrame;
+                
+                // --- ANIMATION POSES ---
+                
+                // Default Joint Positions
+                let head = p.createVector(0, -90);
+                let neck = p.createVector(0, -75);
+                let pelvis = p.createVector(0, -40);
+                let kneeL = p.createVector(-10, -20);
+                let footL = p.createVector(-15, 0);
+                let kneeR = p.createVector(10, -20);
+                let footR = p.createVector(15, 0);
+                let elbowL = p.createVector(-15, -60);
+                let handL = p.createVector(-20, -45);
+                let elbowR = p.createVector(15, -60);
+                let handR = p.createVector(20, -45);
 
-            if (this.state === "IDLE") {
-              head.y += Math.sin(t) * 2;
-              handL.y += Math.sin(t) * 3;
-              handR.y += Math.sin(t) * 3;
-            } 
-            else if (this.state === "WALK") {
-              kneeL.x = Math.sin(t) * 15; footL.x = Math.sin(t) * 20;
-              kneeR.x = Math.sin(t + Math.PI) * 15; footR.x = Math.sin(t + Math.PI) * 20;
-              elbowL.x = Math.sin(t + Math.PI) * 15; handL.x = Math.sin(t + Math.PI) * 20;
-              elbowR.x = Math.sin(t) * 15; handR.x = Math.sin(t) * 20;
-            }
-            else if (this.state === "RUN") {
-              let s = 1.5;
-              neck.x = 10; head.x = 15;
-              kneeL.x = Math.sin(t*s) * 25; footL.x = Math.sin(t*s) * 35; footL.y = -10 + Math.cos(t*s)*10;
-              kneeR.x = Math.sin(t*s + Math.PI) * 25; footR.x = Math.sin(t*s + Math.PI) * 35; footR.y = -10 + Math.cos(t*s+Math.PI)*10;
-              handL.x = -20; handL.y = -60;
-              handR.x = 20; handR.y = -60;
-            }
-            else if (this.state === "ATTACK1") { // Punch
-              handR.x = 40; handR.y = -75; // Extend Right
-              elbowR.x = 20; elbowR.y = -75;
-              pelvis.x = 10;
-            }
-            else if (this.state === "ATTACK2") { // Kick
-              footR.x = 45; footR.y = -50;
-              kneeR.x = 20; kneeR.y = -50;
-              pelvis.x = -5;
-            }
-            else if (this.state === "ATTACK3") { // Uppercut/Strong
-              handR.x = 30; handR.y = -100;
-              elbowR.x = 20; elbowR.y = -80;
-              head.y = -100;
-            }
-            else if (this.state === "DEFEND") {
-              handL.x = 10; handL.y = -80;
-              handR.x = 15; handR.y = -75;
-              head.x = -5;
-            }
-            else if (this.state === "HURT" || this.dead) {
-              head.x = -10; head.y = -80;
-              neck.x = -5; pelvis.x = -10;
-              handL.y = -90; handR.y = -90;
-              kneeL.x = 10; kneeR.x = -10;
-            }
-            else if (this.state === "JUMP" || this.state === "JUMP_ATTACK") {
-              kneeL.y = -30; footL.y = -10;
-              kneeR.y = -30; footR.y = -10;
-              if (this.state === "JUMP_ATTACK") {
-                footR.x = 40; footR.y = -20; // Jump Kick
-              }
-            }
+                if (this.state === "IDLE") {
+                head.y += Math.sin(t) * 2;
+                handL.y += Math.sin(t) * 3;
+                handR.y += Math.sin(t) * 3;
+                } 
+                else if (this.state === "WALK") {
+                kneeL.x = Math.sin(t) * 15; footL.x = Math.sin(t) * 20;
+                kneeR.x = Math.sin(t + Math.PI) * 15; footR.x = Math.sin(t + Math.PI) * 20;
+                elbowL.x = Math.sin(t + Math.PI) * 15; handL.x = Math.sin(t + Math.PI) * 20;
+                elbowR.x = Math.sin(t) * 15; handR.x = Math.sin(t) * 20;
+                }
+                else if (this.state === "RUN") {
+                let s = 1.5;
+                neck.x = 10; head.x = 15;
+                kneeL.x = Math.sin(t*s) * 25; footL.x = Math.sin(t*s) * 35; footL.y = -10 + Math.cos(t*s)*10;
+                kneeR.x = Math.sin(t*s + Math.PI) * 25; footR.x = Math.sin(t*s + Math.PI) * 35; footR.y = -10 + Math.cos(t*s+Math.PI)*10;
+                handL.x = -20; handL.y = -60;
+                handR.x = 20; handR.y = -60;
+                }
+                else if (this.state === "ATTACK1") { // Punch
+                handR.x = 40; handR.y = -75; // Extend Right
+                elbowR.x = 20; elbowR.y = -75;
+                pelvis.x = 10;
+                }
+                else if (this.state === "ATTACK2") { // Kick
+                footR.x = 45; footR.y = -50;
+                kneeR.x = 20; kneeR.y = -50;
+                pelvis.x = -5;
+                }
+                else if (this.state === "ATTACK3") { // Uppercut/Strong
+                handR.x = 30; handR.y = -100;
+                elbowR.x = 20; elbowR.y = -80;
+                head.y = -100;
+                }
+                else if (this.state === "DEFEND") {
+                handL.x = 10; handL.y = -80;
+                handR.x = 15; handR.y = -75;
+                head.x = -5;
+                }
+                else if (this.state === "HURT" || this.dead) {
+                head.x = -10; head.y = -80;
+                neck.x = -5; pelvis.x = -10;
+                handL.y = -90; handR.y = -90;
+                kneeL.x = 10; kneeR.x = -10;
+                }
+                else if (this.state === "JUMP" || this.state === "JUMP_ATTACK") {
+                kneeL.y = -30; footL.y = -10;
+                kneeR.y = -30; footR.y = -10;
+                if (this.state === "JUMP_ATTACK") {
+                    footR.x = 40; footR.y = -20; // Jump Kick
+                }
+                }
 
-            // Draw Limbs
-            p.line(neck.x, neck.y, pelvis.x, pelvis.y); // Body
-            p.line(pelvis.x, pelvis.y, kneeL.x, kneeL.y); p.line(kneeL.x, kneeL.y, footL.x, footL.y); // Left Leg
-            p.line(pelvis.x, pelvis.y, kneeR.x, kneeR.y); p.line(kneeR.x, kneeR.y, footR.x, footR.y); // Right Leg
-            p.line(neck.x, neck.y, elbowL.x, elbowL.y); p.line(elbowL.x, elbowL.y, handL.x, handL.y); // Left Arm
-            p.line(neck.x, neck.y, elbowR.x, elbowR.y); p.line(elbowR.x, elbowR.y, handR.x, handR.y); // Right Arm
-            
-            // Draw Head
-            p.fill(this.color);
-            p.noStroke();
-            p.ellipse(head.x, head.y, 25, 25);
+                // Draw Limbs
+                p.line(neck.x, neck.y, pelvis.x, pelvis.y); // Body
+                p.line(pelvis.x, pelvis.y, kneeL.x, kneeL.y); p.line(kneeL.x, kneeL.y, footL.x, footL.y); // Left Leg
+                p.line(pelvis.x, pelvis.y, kneeR.x, kneeR.y); p.line(kneeR.x, kneeR.y, footR.x, footR.y); // Right Leg
+                p.line(neck.x, neck.y, elbowL.x, elbowL.y); p.line(elbowL.x, elbowL.y, handL.x, handL.y); // Left Arm
+                p.line(neck.x, neck.y, elbowR.x, elbowR.y); p.line(elbowR.x, elbowR.y, handR.x, handR.y); // Right Arm
+                
+                // Draw Head
+                p.fill(this.color);
+                p.noStroke();
+                p.ellipse(head.x, head.y, 25, 25);
+            }
             
             p.pop();
           }

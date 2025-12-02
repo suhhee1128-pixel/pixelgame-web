@@ -6,10 +6,8 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
   interface Entity {
     x: number;
     y: number;
-    z: number;
     vx: number;
     vy: number;
-    vz: number;
     width: number;
     height: number;
     hp: number;
@@ -18,10 +16,13 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
     facing: 1 | -1;
     frameTimer: number;
     frameIndex: number;
+    animFrame: number; // Added for stickman animation
     type: 'player' | 'enemy';
     color: string;
     image?: HTMLImageElement | HTMLCanvasElement;
     frames?: (HTMLImageElement | HTMLCanvasElement)[];
+    attackFrames?: (HTMLImageElement | HTMLCanvasElement)[];
+    jumpFrames?: (HTMLImageElement | HTMLCanvasElement)[];
     attackBox?: { x: number, y: number, w: number, h: number, active: boolean, damage?: number, knockback?: number }; // Added damage/knockback
     hitTimer: number;
     isDashing?: boolean; // Added
@@ -30,8 +31,8 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 450;
-const GROUND_Y = 380; // Adjusted for background image
-const GRAVITY = 0.6;
+const GROUND_Y = 400; // Standard 2D floor
+const GRAVITY = 0.8;
 
 const colorOptions = [
     { name: 'None', value: 'None', color: 'transparent' },
@@ -69,7 +70,8 @@ export default function GameTab() {
   // Sprite State
   const [spriteActionType, setSpriteActionType] = useState<'attack' | 'jump'>('attack');
   const [spriteReferenceImage, setSpriteReferenceImage] = useState<File | null>(null);
-  const [spriteFrames, setSpriteFrames] = useState<string[]>([]);
+  const [attackSprites, setAttackSprites] = useState<string[]>([]);
+  const [jumpSprites, setJumpSprites] = useState<string[]>([]);
   const [spriteStatus, setSpriteStatus] = useState('Select animation type...');
   const [spriteLoading, setSpriteLoading] = useState(false);
   const [animationInfo, setAnimationInfo] = useState('');
@@ -78,16 +80,16 @@ export default function GameTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const playerRef = useRef<Entity>({
-    x: 100, y: GROUND_Y, z: 0, vx: 0, vy: 0, vz: 0, width: 120, height: 200, hp: 100, maxHp: 100,
-    state: 'idle', facing: 1, frameTimer: 0, frameIndex: 0, type: 'player', color: 'blue', hitTimer: 0
+    x: 100, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100,
+    state: 'idle', facing: 1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'player', color: 'blue', hitTimer: 0
   });
   // Add extra properties for combat logic (dashing, combo, etc.) dynamically if needed, or update interface.
   // Using refs for dash timing
   const lastKeyTime = useRef<{ [key: string]: number }>({ ArrowLeft: 0, ArrowRight: 0 });
   
   const enemyRef = useRef<Entity>({
-    x: 600, y: GROUND_Y, z: 0, vx: 0, vy: 0, vz: 0, width: 120, height: 200, hp: 100, maxHp: 100,
-    state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, type: 'enemy', color: 'red', hitTimer: 0
+    x: 600, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100,
+    state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'enemy', color: '#963296', hitTimer: 0
   });
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const particlesRef = useRef<any[]>([]);
@@ -112,8 +114,8 @@ export default function GameTab() {
         if (phase === 'playing' && playerRef.current.hp > 0) {
              if (e.code === 'KeyZ') performAttack(playerRef.current, 'attack');
              if (e.code === 'KeyX') {
-                 if (playerRef.current.z === 0 && playerRef.current.state !== 'hit' && playerRef.current.state !== 'attack') {
-                     playerRef.current.vz = -12; // Jump force
+                 if (Math.abs(playerRef.current.y - GROUND_Y) < 1 && playerRef.current.state !== 'hit' && playerRef.current.state !== 'attack') {
+                     playerRef.current.vy = -18; // Jump force
                  }
              }
         }
@@ -193,16 +195,29 @@ export default function GameTab() {
                 playerRef.current.image = removeBackground(img);
             };
         }
-        if (spriteFrames.length > 0) {
-            const frames: (HTMLImageElement | HTMLCanvasElement)[] = new Array(spriteFrames.length);
+        if (attackSprites.length > 0) {
+            const frames: (HTMLImageElement | HTMLCanvasElement)[] = new Array(attackSprites.length);
             let loaded = 0;
-            spriteFrames.forEach((url, i) => {
+            attackSprites.forEach((url, i) => {
                 const img = new Image();
                 img.src = url;
                 img.onload = () => {
                     frames[i] = removeBackground(img);
                     loaded++;
-                    if (loaded === spriteFrames.length) playerRef.current.frames = frames;
+                    if (loaded === attackSprites.length) playerRef.current.attackFrames = frames;
+                };
+            });
+        }
+        if (jumpSprites.length > 0) {
+            const frames: (HTMLImageElement | HTMLCanvasElement)[] = new Array(jumpSprites.length);
+            let loaded = 0;
+            jumpSprites.forEach((url, i) => {
+                const img = new Image();
+                img.src = url;
+                img.onload = () => {
+                    frames[i] = removeBackground(img);
+                    loaded++;
+                    if (loaded === jumpSprites.length) playerRef.current.jumpFrames = frames;
                 };
             });
         }
@@ -255,6 +270,15 @@ export default function GameTab() {
     }
   };
 
+  const handleCharacterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const url = URL.createObjectURL(file);
+          setGeneratedImage(url);
+          setGenStatus('✅ Character uploaded successfully!');
+      }
+  };
+
   const downloadImage = (imageUrl: string, filename: string) => {
     const link = document.createElement('a');
     link.href = imageUrl;
@@ -276,8 +300,9 @@ export default function GameTab() {
         const res = await fetch('/api/generate/sprite-animation', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            setSpriteFrames(data.frames);
-            setSpriteStatus('✅ Animation generated successfully!');
+            if (spriteActionType === 'attack') setAttackSprites(data.frames);
+            else setJumpSprites(data.frames);
+            setSpriteStatus(`✅ ${spriteActionType} animation generated successfully!`);
         } else {
             setSpriteStatus(`❌ Error: ${data.error}`);
         }
@@ -285,14 +310,28 @@ export default function GameTab() {
     setSpriteLoading(false);
   };
 
+  const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump') => {
+    if (e.target.files && e.target.files.length > 0) {
+        const files = Array.from(e.target.files);
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        const urls = files.map(file => URL.createObjectURL(file));
+        
+        if (type === 'attack') setAttackSprites(urls);
+        else setJumpSprites(urls);
+        
+        setSpriteStatus(`✅ Custom ${type} sprites loaded (${files.length} frames)`);
+    }
+  };
+
   const downloadAllFrames = async () => {
-    if (spriteFrames.length === 0) return;
+    const framesToDownload = spriteActionType === 'attack' ? attackSprites : jumpSprites;
+    if (framesToDownload.length === 0) return;
     try {
       setSpriteStatus('Creating ZIP file...');
       const response = await fetch('/api/download/frames', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrls: spriteFrames }),
+        body: JSON.stringify({ imageUrls: framesToDownload }),
       });
       if (response.ok) {
         const blob = await response.blob();
@@ -335,20 +374,27 @@ export default function GameTab() {
   const updateEntity = (e: Entity, keys: { [key: string]: boolean }) => {
     if (e.state === 'dead') return;
     
+    e.animFrame += 0.2;
+
     // Hit Stun
     if (e.state === 'hit') {
         if (e.hitTimer > 0) {
             e.hitTimer--;
             if (e.hitTimer === 0) e.state = 'idle';
         }
+        // Apply Gravity during hit
+        e.y += e.vy;
+        if (e.y >= GROUND_Y) { e.y = GROUND_Y; e.vy = 0; }
+        else e.vy += GRAVITY;
+        
+        e.x += e.vx; // Knockback
         return;
     }
 
     // Defense
     if (e.type === 'player' && keys['KeyC']) {
         e.state = 'defend';
-        e.vx = 0; e.vy = 0;
-        return;
+        e.vx = 0;
     } else if (e.state === 'defend') {
         e.state = 'idle';
     }
@@ -356,73 +402,101 @@ export default function GameTab() {
     // Attack Logic (State Machine handled in performAttack/Animation loop)
     if (e.state === 'attack') {
         // Lock movement during attack
-        e.vx = 0; e.vy = 0;
-        // Combo logic could go here if we had multiple animations
+        e.vx = 0;
+        if (e.attackFrames && e.frames !== e.attackFrames) {
+            e.frames = e.attackFrames;
+            e.frameIndex = 0;
+            e.frameTimer = 0;
+        }
+        // Update attack box position
+        if (e.attackBox) {
+            e.attackBox.x = e.x + (e.facing === 1 ? 0 : -e.attackBox.w);
+            e.attackBox.y = e.y - 100;
+        }
     } else {
         // Movement
         if (e.type === 'player') {
-            let moveSpeed = e.isDashing ? 10 : 4;
+            let moveSpeed = e.isDashing ? 10 : 5;
             let moving = false;
 
             if (keys['ArrowLeft']) { e.vx = -moveSpeed; e.facing = -1; moving = true; }
             else if (keys['ArrowRight']) { e.vx = moveSpeed; e.facing = 1; moving = true; }
             else e.vx = 0;
 
-            if (keys['ArrowUp']) { e.vy = -moveSpeed * 0.7; moving = true; }
-            else if (keys['ArrowDown']) { e.vy = moveSpeed * 0.7; moving = true; }
-            else e.vy = 0;
+            // Check Ground State
+            const onGround = Math.abs(e.y - GROUND_Y) < 1;
 
-            if (moving) e.state = 'move';
-            else e.state = 'idle';
+            if (moving && onGround) {
+                e.state = 'move';
+                e.frames = undefined; // Use static image or walk frames if added
+            }
+            else if (!onGround) {
+                e.state = 'idle'; // Technically jump
+                if (e.jumpFrames && e.frames !== e.jumpFrames) {
+                    e.frames = e.jumpFrames;
+                    e.frameIndex = 0;
+                } else if (!e.jumpFrames) {
+                    e.frames = undefined;
+                }
+            }
+            else {
+                e.state = 'idle';
+                e.frames = undefined;
+            }
 
             // Jump
-            if (keys['KeyX'] && e.z === 0) { e.vz = -12; } // Jump
+            if (keys['KeyX'] && onGround) { e.vy = -18; } 
             
             // Attack Trigger
             if (keys['KeyZ']) performAttack(e, 'attack');
         }
     }
 
-    // Physics
+    // Physics 2D
     e.x += e.vx; 
     // Boundary checks
     if (e.x < 0) e.x = 0; if (e.x > CANVAS_WIDTH) e.x = CANVAS_WIDTH;
     
-    // Y Movement (Depth)
+    // Gravity
     e.y += e.vy;
-    if (e.y < 250) e.y = 250; // Horizon
-    if (e.y > 450) e.y = 450; // Bottom
-
-    // Z Movement (Gravity)
-    e.z += e.vz; e.vz += GRAVITY;
-    if (e.z > 0) { e.z = 0; e.vz = 0; }
+    if (e.y > GROUND_Y) {
+        e.y = GROUND_Y;
+        e.vy = 0;
+    } else if (e.y < GROUND_Y) {
+        e.vy += GRAVITY;
+    }
     
     // Animation & Hitbox
     e.frameTimer++;
-    const animSpeed = e.state === 'move' ? (e.isDashing ? 4 : 8) : 12; 
+    const animSpeed = e.state === 'move' ? (e.isDashing ? 4 : 8) : 8; 
     if (e.frameTimer > animSpeed) {
         e.frameTimer = 0;
+        // Safety check: ensure frames exists AND has length
         if (e.frames && e.frames.length > 0) {
-            e.frameIndex++;
             if (e.state === 'attack') {
                 // Attack Animation Cycle
-                if (e.frameIndex >= 8) { 
+                e.frameIndex++;
+                // Double check length inside just in case (though outer check covers it)
+                if (e.frameIndex >= e.frames.length) { 
                     e.frameIndex = 0; e.state = 'idle'; 
+                    e.frames = undefined;
                     if(e.attackBox) e.attackBox.active = false;
+                } else { // Only check hitbox if frame is valid
+                    // Active Hitbox on specific frames (Impact)
+                    const mid = Math.floor(e.frames.length / 2);
+                    if ((e.frameIndex === mid || e.frameIndex === mid+1) && e.attackBox) {
+                        e.attackBox.active = true;
+                    } else if (e.attackBox) {
+                        e.attackBox.active = false;
+                    }
                 }
-                // Active Hitbox on specific frames (Impact)
-                if ((e.frameIndex === 4 || e.frameIndex === 5) && e.attackBox) {
-                    e.attackBox.active = true;
-                } else if (e.attackBox) {
-                    e.attackBox.active = false;
-                }
-            } else if (e.z < 0 && e.frames.length >= 6) {
+            } else if (!Math.abs(e.y - GROUND_Y) && e.frames === e.jumpFrames) {
                 // Jump Animation
-                if (e.frameIndex < 2) e.frameIndex = 2;
-                if (e.frameIndex > 6) e.frameIndex = 6; 
+                e.frameIndex++;
+                if (e.frameIndex >= e.frames.length) e.frameIndex = e.frames.length - 1; 
             } else {
-                // Loop Idle/Move
-                if (e.frameIndex > 1) e.frameIndex = 0;
+                // Loop
+                e.frameIndex = (e.frameIndex + 1) % e.frames.length;
             }
         }
     }
@@ -432,7 +506,7 @@ export default function GameTab() {
         if (checkCollision(e.attackBox, target)) {
             takeDamage(target, e.attackBox.damage || 10, e.facing, e.attackBox.knockback || 5);
             e.attackBox.active = false; // Hit once per attack frame
-            spawnParticle(target.x, target.y - target.z - 50, 'hit');
+            spawnParticle(target.x, target.y - 50, 'hit');
         }
     }
   };
@@ -440,40 +514,39 @@ export default function GameTab() {
   const updateAI = (enemy: Entity, player: Entity) => {
       if (enemy.state === 'hit' || enemy.state === 'dead') return;
       
+      enemy.animFrame += 0.2;
+
       const dx = player.x - enemy.x;
-      const dy = player.y - enemy.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
+      const dist = Math.abs(dx);
       
       // Simple AI
       if (dist > 80) {
-          enemy.vx = dx > 0 ? 2 : -2;
-          enemy.vy = dy > 0 ? 1 : -1;
+          enemy.vx = dx > 0 ? 3 : -3;
           enemy.state = 'move';
           enemy.facing = dx > 0 ? 1 : -1;
       } else {
-          enemy.vx = 0; enemy.vy = 0;
+          enemy.vx = 0; 
           // Attack chance
           if (Math.random() < 0.02 && enemy.state !== 'attack') performAttack(enemy, 'attack');
           else enemy.state = 'idle';
       }
       
-      // Apply Physics
+      // Physics 2D
       enemy.x += enemy.vx; 
       if (enemy.x < 0) enemy.x = 0; if (enemy.x > CANVAS_WIDTH) enemy.x = CANVAS_WIDTH;
 
       enemy.y += enemy.vy;
-      if (enemy.y < 250) enemy.y = 250;
-      if (enemy.y > 450) enemy.y = 450;
+      if (enemy.y > GROUND_Y) {
+          enemy.y = GROUND_Y;
+          enemy.vy = 0;
+      } else if (enemy.y < GROUND_Y) {
+          enemy.vy += GRAVITY;
+      }
 
-      enemy.z += enemy.vz; enemy.vz += GRAVITY;
-      if (enemy.z > 0) { enemy.z = 0; enemy.vz = 0; }
-
-      // Animation update for enemy (reusing same logic roughly)
+      // Animation update
       enemy.frameTimer++;
       if (enemy.frameTimer > 12) {
           enemy.frameTimer = 0;
-          // ... simplified animation logic for enemy or same as player ...
-          // For now assuming enemy uses same sprites or placeholders
           if (enemy.frames && enemy.frames.length > 0) {
              enemy.frameIndex++;
              if (enemy.state === 'attack') {
@@ -485,24 +558,30 @@ export default function GameTab() {
           }
       }
       
+      // Update Attack Box
+      if (enemy.state === 'attack' && enemy.attackBox) {
+          enemy.attackBox.x = enemy.x + (enemy.facing === 1 ? 0 : -enemy.attackBox.w);
+          enemy.attackBox.y = enemy.y - 100;
+      }
+
       // Enemy Hitbox
       if (enemy.attackBox && enemy.attackBox.active) {
           if (checkCollision(enemy.attackBox, player)) {
               takeDamage(player, 5, enemy.facing, 5);
               enemy.attackBox.active = false;
-              spawnParticle(player.x, player.y - player.z - 50, 'hit');
+              spawnParticle(player.x, player.y - 50, 'hit');
           }
       }
   };
 
   const performAttack = (e: Entity, type: string) => {
       if (e.state === 'attack') return; // Already attacking
-      e.state = 'attack'; e.vx = 0; e.vy = 0;
+      e.state = 'attack'; e.vx = 0;
       e.frameIndex = 0; // Start from frame 0
       // Hitbox parameters
       e.attackBox = { 
-          x: e.x + (e.facing === 1 ? 40 : -100), // Offset based on facing
-          y: e.y - 100, 
+          x: 0, // Set in update loop
+          y: 0, 
           w: 80, 
           h: 80, 
           active: false,
@@ -512,26 +591,11 @@ export default function GameTab() {
   };
 
   const checkCollision = (box: {x:number, y:number, w:number, h:number}, target: Entity) => {
-      // 2.5D Collision: Check X/Width, Y/Height (z-axis relative)
-      // Box coordinates are absolute world coordinates calculated in updateEntity or here?
-      // Actually attackBox.x in updateEntity needs to be calculated every frame based on entity position
-      // Let's recalculate box world position here or in updateEntity.
-      // In updateEntity, I set attackBox relative or static?
-      // I should update attackBox position in updateEntity loop.
-      
-      // Let's fix updateEntity to update attackBox position.
-      // But for now, let's assume attackBox properties are offsets or absolute.
-      // In performAttack, I set absolute position. But Entity moves.
-      // Better to store offsets in attackBox and calculate world pos here.
-      
-      // Re-implementing simple check assuming updateEntity updates the box or box is calculated here:
-      // Let's just calculate hit volume here based on attacker pos + offset
-      // But `box` is passed as argument.
-      
-      // Correction: updateEntity should update attackBox.x/y based on current e.x/e.y
-      return (box.x < target.x + target.width/2 && box.x + box.w > target.x - target.width/2 && 
-              Math.abs(box.y - target.y) < 30 && // Depth check (Y axis)
-              Math.abs(target.z) < 50); // Z axis check (must be close to ground or same height)
+      // 2D Box Collision
+      return (box.x < target.x + target.width/2 && 
+              box.x + box.w > target.x - target.width/2 && 
+              box.y < target.y && 
+              box.y + box.h > target.y - target.height);
   };
 
   const takeDamage = (e: Entity, amount: number, hitDir: number, knockback: number) => {
@@ -540,12 +604,14 @@ export default function GameTab() {
       if (e.state === 'defend') {
           amount *= 0.1; // Chip damage
           knockback *= 0.5;
-          spawnParticle(e.x, e.y - e.z - 50, 'block'); // Block effect
+          spawnParticle(e.x, e.y - 50, 'block'); // Block effect
       } else {
           e.state = 'hit'; 
           e.hitTimer = 15; 
           // Blood effect
-          spawnParticle(e.x, e.y - e.z - 50, 'blood');
+          spawnParticle(e.x, e.y - 50, 'blood');
+          // Pop up
+          e.vy = -5;
       }
       
       e.hp -= amount; 
@@ -559,6 +625,72 @@ export default function GameTab() {
 
   const spawnParticle = (x: number, y: number, type: string) => { particlesRef.current.push({ x, y, life: 20, type }); };
   const updateParticles = () => { particlesRef.current.forEach((p, i) => { p.life--; p.y -= 1; if (p.life <= 0) particlesRef.current.splice(i, 1); }); };
+
+  const drawStickman = (ctx: CanvasRenderingContext2D, e: Entity) => {
+    const t = e.animFrame;
+
+    // Default Joint Positions (Matching BattleTab logic)
+    let head = { x: 0, y: -90 };
+    let neck = { x: 0, y: -75 };
+    let pelvis = { x: 0, y: -40 };
+    let kneeL = { x: -10, y: -20 };
+    let footL = { x: -15, y: 0 };
+    let kneeR = { x: 10, y: -20 };
+    let footR = { x: 15, y: 0 };
+    let elbowL = { x: -15, y: -60 };
+    let handL = { x: -20, y: -45 };
+    let elbowR = { x: 15, y: -60 };
+    let handR = { x: 20, y: -45 };
+
+    // Apply Animation Logic based on State
+    if (e.state === 'idle') {
+      head.y += Math.sin(t) * 2;
+      handL.y += Math.sin(t) * 3;
+      handR.y += Math.sin(t) * 3;
+    } else if (e.state === 'move') { // Walk/Run
+      // Using Walk logic for move
+      kneeL.x = Math.sin(t) * 15; footL.x = Math.sin(t) * 20;
+      kneeR.x = Math.sin(t + Math.PI) * 15; footR.x = Math.sin(t + Math.PI) * 20;
+      elbowL.x = Math.sin(t + Math.PI) * 15; handL.x = Math.sin(t + Math.PI) * 20;
+      elbowR.x = Math.sin(t) * 15; handR.x = Math.sin(t) * 20;
+    } else if (e.state === 'attack') {
+      // Punch logic (ATTACK1)
+      handR.x = 40; handR.y = -75; // Extend Right
+      elbowR.x = 20; elbowR.y = -75;
+      pelvis.x = 10;
+    } else if (e.state === 'hit' || e.state === 'dead') {
+      head.x = -10; head.y = -80;
+      neck.x = -5; pelvis.x = -10;
+      handL.y = -90; handR.y = -90;
+      kneeL.x = 10; kneeR.x = -10;
+    }
+
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Helper to draw line
+    const line = (v1: {x:number, y:number}, v2: {x:number, y:number}) => {
+      ctx.beginPath();
+      ctx.moveTo(v1.x, v1.y);
+      ctx.lineTo(v2.x, v2.y);
+      ctx.stroke();
+    };
+
+    // Draw Limbs
+    line(neck, pelvis); // Body
+    line(pelvis, kneeL); line(kneeL, footL); // Left Leg
+    line(pelvis, kneeR); line(kneeR, footR); // Right Leg
+    line(neck, elbowL); line(elbowL, handL); // Left Arm
+    line(neck, elbowR); line(elbowR, handR); // Right Arm
+
+    // Draw Head
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 12.5, 0, Math.PI * 2); // Radius 12.5 = diameter 25
+    ctx.fill();
+  };
 
   const draw = () => {
       const canvas = canvasRef.current;
@@ -576,25 +708,38 @@ export default function GameTab() {
       const entities = [playerRef.current, enemyRef.current].sort((a, b) => a.y - b.y);
       entities.forEach(e => {
           // Shadow
-          ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, GROUND_Y + 10, 40, 10, 0, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, GROUND_Y + 5, 40, 10, 0, 0, Math.PI*2); ctx.fill();
 
-          const spriteY = e.y + e.z;
+          const spriteY = e.y;
           const bobOffset = (e.state === 'move' && Math.floor(Date.now() / 150) % 2 === 0) ? -5 : 0;
 
           ctx.save();
-          if (e.facing === -1) { ctx.scale(-1, 1); ctx.translate(-e.x * 2, 0); }
-          if (e.image) {
-              let img = e.image;
-              if (e.frames && e.frames.length > e.frameIndex && e.frames[e.frameIndex]) img = e.frames[e.frameIndex];
-              ctx.drawImage(img, e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+          
+          if (e.type === 'enemy') {
+            // Stickman specific transform
+            ctx.translate(e.x, spriteY); // Anchor at feet
+            ctx.scale(e.facing, 1);
+            drawStickman(ctx, e);
           } else {
-              ctx.fillStyle = e.color; ctx.fillRect(e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+             // Player (Original Logic)
+             if (e.facing === -1) { ctx.scale(-1, 1); ctx.translate(-e.x * 2, 0); }
+             if (e.image) {
+                let img = e.image;
+                if (e.frames && e.frames.length > e.frameIndex && e.frames[e.frameIndex]) img = e.frames[e.frameIndex];
+                ctx.drawImage(img, e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+             } else {
+                ctx.fillStyle = e.color; ctx.fillRect(e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+             }
           }
+
           ctx.restore();
-          if (e.state === 'hit') {
+
+          if (e.state === 'hit' && e.type !== 'enemy') {
               ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-              ctx.fillRect(e.x - e.width/2, spriteY - e.height, e.width, e.height);
-              ctx.globalCompositeOperation = 'source-over';
+              // Note: source-atop works on the whole canvas, but since we cleared/restored, we'd need to re-clip or mask.
+              // For simplicity in this architecture, simplified flash is better or just skipping for now.
+              // The original code tried to draw over the rect.
+              // ctx.fillRect(e.x - e.width/2, spriteY - e.height, e.width, e.height);
           }
       });
       
@@ -678,9 +823,15 @@ export default function GameTab() {
                             ))}
                         </div>
                     </div>
-                    <button onClick={generatePixelCharacter} disabled={genLoading} className="pixel-button w-full text-lg">
-                        {genLoading ? 'GENERATING...' : 'APPLY'}
-                    </button>
+                    <div className="grid grid-cols-2 gap-4">
+                        <button onClick={generatePixelCharacter} disabled={genLoading} className="pixel-button w-full text-lg">
+                            {genLoading ? 'GENERATING...' : 'GENERATE (AI)'}
+                        </button>
+                        <label className="pixel-button w-full text-lg bg-purple-600 hover:bg-purple-700 text-white cursor-pointer flex items-center justify-center text-center">
+                            UPLOAD IMAGE
+                            <input type="file" accept="image/*" onChange={handleCharacterUpload} className="hidden" />
+                        </label>
+                    </div>
                     {genLoading && (<div className="mt-4"><div className="flex items-center justify-between mb-2"><span className="pixel-text text-sm">Generating...</span><span className="pixel-text text-sm">{genProgress}%</span></div><div className="pixel-progress-bar"><div className="pixel-progress-bar-fill" style={{ width: `${genProgress}%` }}></div></div></div>)}
                 </div>
                 <div className="space-y-6">
@@ -733,14 +884,44 @@ export default function GameTab() {
               </div>
               <div className="space-y-4 bg-white p-4 border-4 border-black h-fit">
                   <h3 className="pixel-text font-bold">GENERATED FRAMES</h3>
-                  {spriteFrames.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2">
-                          {spriteFrames.map((frame, i) => <img key={i} src={frame} className="w-full border border-gray-300 cursor-pointer hover:opacity-80" onClick={() => downloadImage(frame, `frame_${i}.png`)} style={{ imageRendering: 'pixelated' }} />)}
+                  <div className="mb-2">
+                      <p className="text-xs mb-1 font-bold">Or Upload Your Own:</p>
+                      <div className="flex gap-2 flex-col">
+                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
+                            UPLOAD ATTACK FRAMES
+                            <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'attack')} className="hidden" />
+                        </label>
+                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
+                            UPLOAD JUMP FRAMES
+                            <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'jump')} className="hidden" />
+                        </label>
+                      </div>
+                  </div>
+
+                  {attackSprites.length > 0 || jumpSprites.length > 0 ? (
+                      <div className="space-y-2">
+                          {attackSprites.length > 0 && (
+                              <div>
+                                  <p className="text-xs font-bold">Attack ({attackSprites.length})</p>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {attackSprites.map((frame, i) => <img key={`atk-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                  </div>
+                              </div>
+                          )}
+                          {jumpSprites.length > 0 && (
+                              <div>
+                                  <p className="text-xs font-bold">Jump ({jumpSprites.length})</p>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {jumpSprites.map((frame, i) => <img key={`jmp-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                  </div>
+                              </div>
+                          )}
                       </div>
                   ) : <div className="w-full h-32 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No frames yet</div>}
-                  {spriteFrames.length > 0 && (
+                  
+                  {(attackSprites.length > 0 || jumpSprites.length > 0) && (
                       <>
-                        <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 mb-2">DOWNLOAD ALL (ZIP)</button>
+                        <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 mb-2">DOWNLOAD CURRENT (ZIP)</button>
                         <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-3 text-lg hover:bg-red-600 animate-bounce">START BATTLE!</button>
                       </>
                   )}
