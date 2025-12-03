@@ -22,6 +22,7 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
     image?: HTMLImageElement | HTMLCanvasElement;
     frames?: (HTMLImageElement | HTMLCanvasElement)[];
     attackFrames?: (HTMLImageElement | HTMLCanvasElement)[];
+    attack2Frames?: (HTMLImageElement | HTMLCanvasElement)[]; // Added attack2
     jumpFrames?: (HTMLImageElement | HTMLCanvasElement)[];
     deadFrames?: (HTMLImageElement | HTMLCanvasElement)[];
     defenseFrames?: (HTMLImageElement | HTMLCanvasElement)[]; // Added
@@ -70,9 +71,10 @@ export default function GameTab() {
   const [genProgress, setGenProgress] = useState(0);
 
   // Sprite State
-  const [spriteActionType, setSpriteActionType] = useState<'attack' | 'jump' | 'dead' | 'defense'>('attack');
+  const [spriteActionType, setSpriteActionType] = useState<'attack' | 'jump' | 'dead' | 'defense' | 'attack2'>('attack');
   const [spriteReferenceImage, setSpriteReferenceImage] = useState<File | null>(null);
   const [attackSprites, setAttackSprites] = useState<string[]>([]);
+  const [attack2Sprites, setAttack2Sprites] = useState<string[]>([]); // Added
   const [jumpSprites, setJumpSprites] = useState<string[]>([]);
   const [deadSprites, setDeadSprites] = useState<string[]>([]);
   const [defenseSprites, setDefenseSprites] = useState<string[]>([]); // Added
@@ -122,6 +124,7 @@ export default function GameTab() {
         // Trigger Actions immediately on press (Z: Attack, ArrowUp: Jump)
         if (phase === 'playing' && playerRef.current.hp > 0) {
              if (e.code === 'KeyZ') performAttack(playerRef.current, 'attack');
+             if (e.code === 'KeyX') performAttack(playerRef.current, 'attack2'); // X is now Attack 2
              if (e.code === 'ArrowUp') {
                  if (Math.abs(playerRef.current.y - GROUND_Y) < 1 && playerRef.current.state !== 'hit' && playerRef.current.state !== 'attack') {
                      playerRef.current.vy = -18; // Jump force
@@ -147,7 +150,7 @@ export default function GameTab() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [phase]); // Add phase to dependency array to ensure handleKeyDown has current state
 
   useEffect(() => {
     const convert = async () => {
@@ -166,6 +169,8 @@ export default function GameTab() {
   useEffect(() => {
     if (spriteActionType === 'attack') {
       setAnimationInfo('Frame 1: Original\nFrame 2: Idle\nFrame 3: Charge\nFrame 4: Aim\nFrame 5: Prep\nFrame 6: Impact\nFrame 7: Aftershock\nFrame 8: Sheet');
+    } else if (spriteActionType === 'attack2') {
+      setAnimationInfo('Frame 1: Idle Guard\nFrame 2: Shield Up\nFrame 3: Pre-block\nFrame 4: Impact Block\nFrame 5: Shockwave\nFrame 6: Recovery\nFrame 7: Sheet (High Damage)');
     } else if (spriteActionType === 'jump') {
       setAnimationInfo('Frame 1: Original\nFrame 2: Prep\nFrame 3: Launch\nFrame 4: Rising\nFrame 5: Apex\nFrame 6: Descend\nFrame 7: Land\nFrame 8: Sheet');
     } else if (spriteActionType === 'defense') {
@@ -218,6 +223,19 @@ export default function GameTab() {
                     frames[i] = removeBackground(img);
                     loaded++;
                     if (loaded === attackSprites.length) playerRef.current.attackFrames = frames;
+                };
+            });
+        }
+        if (attack2Sprites.length > 0) {
+            const frames: (HTMLImageElement | HTMLCanvasElement)[] = new Array(attack2Sprites.length);
+            let loaded = 0;
+            attack2Sprites.forEach((url, i) => {
+                const img = new Image();
+                img.src = url;
+                img.onload = () => {
+                    frames[i] = removeBackground(img);
+                    loaded++;
+                    if (loaded === attack2Sprites.length) playerRef.current.attack2Frames = frames;
                 };
             });
         }
@@ -340,6 +358,7 @@ export default function GameTab() {
         const data = await res.json();
         if (data.success) {
             if (spriteActionType === 'attack') setAttackSprites(data.frames);
+            else if (spriteActionType === 'attack2') setAttack2Sprites(data.frames);
             else if (spriteActionType === 'jump') setJumpSprites(data.frames);
             else if (spriteActionType === 'defense') setDefenseSprites(data.frames);
             else setDeadSprites(data.frames);
@@ -351,13 +370,14 @@ export default function GameTab() {
     setSpriteLoading(false);
   };
 
-  const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump' | 'dead' | 'defense') => {
+  const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump' | 'dead' | 'defense' | 'attack2') => {
     if (e.target.files && e.target.files.length > 0) {
         const files = Array.from(e.target.files);
         files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
         const urls = files.map(file => URL.createObjectURL(file));
         
         if (type === 'attack') setAttackSprites(urls);
+        else if (type === 'attack2') setAttack2Sprites(urls);
         else if (type === 'jump') setJumpSprites(urls);
         else if (type === 'defense') setDefenseSprites(urls);
         else setDeadSprites(urls);
@@ -368,6 +388,7 @@ export default function GameTab() {
 
   const downloadAllFrames = async () => {
     const framesToDownload = spriteActionType === 'attack' ? attackSprites : 
+                             spriteActionType === 'attack2' ? attack2Sprites :
                              spriteActionType === 'jump' ? jumpSprites : 
                              spriteActionType === 'defense' ? defenseSprites : deadSprites;
     if (framesToDownload.length === 0) return;
@@ -473,11 +494,24 @@ export default function GameTab() {
     if (e.state === 'attack') {
         // Lock movement during attack
         e.vx = 0;
-        if (e.attackFrames && e.frames !== e.attackFrames) {
-            e.frames = e.attackFrames;
-            e.frameIndex = 0;
-            e.frameTimer = 0;
+        
+        // Robust frame check
+        if (e.attackCombo === 2) {
+             if (e.attack2Frames && e.attack2Frames.length > 0 && e.frames !== e.attack2Frames) {
+                 e.frames = e.attack2Frames;
+                 // Don't reset index if we are already playing it
+             }
+        } else {
+             if (e.attackFrames && e.attackFrames.length > 0 && e.frames !== e.attackFrames) {
+                 e.frames = e.attackFrames;
+             }
         }
+
+        // Check if frames are valid
+        if (e.frames) {
+             // ... standard update logic continues below in Animation & Hitbox section
+        }
+        
         // Update attack box position
         if (e.attackBox) {
             e.attackBox.x = e.x + (e.facing === 1 ? 0 : -e.attackBox.w);
@@ -501,7 +535,7 @@ export default function GameTab() {
                 e.frames = undefined; // Use static image or walk frames if added
             }
             else if (!onGround) {
-                e.state = 'idle'; // Technically jump
+                // e.state = 'idle'; // Don't force idle in air to allow jump animation
                 if (e.jumpFrames && e.frames !== e.jumpFrames) {
                     e.frames = e.jumpFrames;
                     e.frameIndex = 0;
@@ -514,8 +548,7 @@ export default function GameTab() {
                 e.frames = undefined;
             }
 
-            // Jump
-            // if (keys['KeyX'] && onGround) { e.vy = -18; } 
+            // Jump handled in handleKeyDown
             
             // Attack Trigger
             if (keys['KeyZ']) performAttack(e, 'attack');
@@ -559,6 +592,13 @@ export default function GameTab() {
                     } else if (e.attackBox) {
                         e.attackBox.active = false;
                     }
+                }
+            } else if (e.state === 'defend') {
+                // Hold Defense Frame (Hold at 5th frame = index 4, or last)
+                if (e.frameIndex < 4 && e.frameIndex < e.frames.length - 1) {
+                    e.frameIndex++;
+                } else {
+                    e.frameIndex = Math.min(4, e.frames.length - 1);
                 }
             } else if (!Math.abs(e.y - GROUND_Y) && e.frames === e.jumpFrames) {
                 // Jump Animation
@@ -648,6 +688,22 @@ export default function GameTab() {
       if (e.state === 'attack') return; // Already attacking
       e.state = 'attack'; e.vx = 0;
       e.frameIndex = 0; // Start from frame 0
+      
+      // Attack 2 Logic
+      if (type === 'attack2') {
+          e.attackCombo = 2; // Mark as attack 2
+          // Use attack2 frames if available, otherwise fallback or empty
+          if (e.attack2Frames && e.attack2Frames.length > 0) {
+              e.frames = e.attack2Frames;
+          } else {
+              console.log("Attack 2 triggered but no frames found, using default or empty");
+              e.frames = e.attackFrames; // Fallback
+          }
+      } else {
+          e.attackCombo = 1;
+          e.frames = e.attackFrames;
+      }
+      
       // Hitbox parameters
       e.attackBox = { 
           x: 0, // Set in update loop
@@ -655,8 +711,8 @@ export default function GameTab() {
           w: 80, 
           h: 80, 
           active: false,
-          damage: 10,
-          knockback: 10
+          damage: type === 'attack2' ? 20 : 10, // Higher damage for Attack 2
+          knockback: type === 'attack2' ? 15 : 10
       };
   };
 
@@ -943,6 +999,7 @@ export default function GameTab() {
                     <label className="pixel-text block text-sm mb-2 font-bold">ANIMATION TYPE</label>
                     <div className="flex gap-4 mb-4">
                        <button onClick={() => setSpriteActionType('attack')} className={`px-4 py-2 border-2 ${spriteActionType === 'attack' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>ATTACK</button>
+                       <button onClick={() => setSpriteActionType('attack2')} className={`px-4 py-2 border-2 ${spriteActionType === 'attack2' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>ATTACK 2</button>
                        <button onClick={() => setSpriteActionType('jump')} className={`px-4 py-2 border-2 ${spriteActionType === 'jump' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>JUMP</button>
                        <button onClick={() => setSpriteActionType('defense')} className={`px-4 py-2 border-2 ${spriteActionType === 'defense' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>DEFENSE</button>
                        <button onClick={() => setSpriteActionType('dead')} className={`px-4 py-2 border-2 ${spriteActionType === 'dead' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>DEAD</button>
@@ -964,6 +1021,10 @@ export default function GameTab() {
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'attack')} className="hidden" />
                         </label>
                         <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
+                            UPLOAD ATTACK 2 FRAMES
+                            <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'attack2')} className="hidden" />
+                        </label>
+                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
                             UPLOAD JUMP FRAMES
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'jump')} className="hidden" />
                         </label>
@@ -978,13 +1039,21 @@ export default function GameTab() {
                       </div>
                   </div>
 
-                  {attackSprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0 ? (
+                  {attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0 ? (
                       <div className="space-y-2">
                           {attackSprites.length > 0 && (
                               <div>
                                   <p className="text-xs font-bold">Attack ({attackSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
                                     {attackSprites.map((frame, i) => <img key={`atk-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                  </div>
+                              </div>
+                          )}
+                          {attack2Sprites.length > 0 && (
+                              <div>
+                                  <p className="text-xs font-bold">Attack 2 ({attack2Sprites.length})</p>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {attack2Sprites.map((frame, i) => <img key={`atk2-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
@@ -1015,7 +1084,7 @@ export default function GameTab() {
                       </div>
                   ) : <div className="w-full h-32 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No frames yet</div>}
                   
-                  {(attackSprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
+                  {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
                       <>
                         <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 mb-2">DOWNLOAD CURRENT (ZIP)</button>
                         <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-3 text-lg hover:bg-red-600 animate-bounce">START BATTLE!</button>
