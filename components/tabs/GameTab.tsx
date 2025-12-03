@@ -101,7 +101,63 @@ export default function GameTab() {
   const particlesRef = useRef<any[]>([]);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
 
+  const victoryTimerRef = useRef<number>(0);
+
   // --- Effects ---
+  useEffect(() => {
+      const loadEnemySprites = async () => {
+          console.log("Attempting to load enemy sprites...");
+          const types = ['idle', 'attack', 'attack2', 'jump', 'defense', 'dead'];
+          const loadedFrames: {[key: string]: (HTMLImageElement | HTMLCanvasElement)[]} = {};
+          
+          // Load up to 8 frames for each type
+          for (const type of types) {
+              const frames: (HTMLImageElement | HTMLCanvasElement)[] = [];
+              for (let i = 1; i <= 8; i++) {
+                  const img = new Image();
+                  // Use timestamp to bust cache if needed, but try standard first
+                  img.src = `/images/enemy/${type}/${i}.png`; 
+                  
+                  await new Promise((resolve) => {
+                      img.onload = () => {
+                          console.log(`Loaded: ${type}/${i}.png`);
+                          frames.push(removeBackground(img));
+                          resolve(null);
+                      };
+                      img.onerror = () => {
+                          // console.log(`Failed: ${type}/${i}.png`); // Reduce noise
+                          resolve(null); 
+                      };
+                  });
+              }
+              if (frames.length > 0) {
+                  loadedFrames[type] = frames;
+                  console.log(`Set ${type} frames: ${frames.length}`);
+              }
+          }
+          
+          // Apply to Enemy
+          if (loadedFrames['idle'] && loadedFrames['idle'].length > 0) {
+              enemyRef.current.frames = loadedFrames['idle'];
+              enemyRef.current.image = loadedFrames['idle'][0]; // Set default image explicitly
+              console.log("Enemy IDLE frames set! Default image updated.");
+          } else {
+              console.log("Warning: No IDLE frames found for enemy.");
+          }
+          if (loadedFrames['attack']) enemyRef.current.attackFrames = loadedFrames['attack'];
+          if (loadedFrames['attack2']) enemyRef.current.attack2Frames = loadedFrames['attack2'];
+          if (loadedFrames['jump']) enemyRef.current.jumpFrames = loadedFrames['jump'];
+          if (loadedFrames['defense']) enemyRef.current.defenseFrames = loadedFrames['defense'];
+          if (loadedFrames['dead']) enemyRef.current.deadFrames = loadedFrames['dead'];
+          
+          // Force re-render logic or state update if needed, but Ref change usually reflects next frame
+      };
+
+      if (phase === 'playing') {
+          loadEnemySprites();
+      }
+  }, [phase]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { 
         // Prevent default scrolling for game keys
@@ -420,7 +476,13 @@ export default function GameTab() {
     playerRef.current.x = 100;
     enemyRef.current.hp = 100;
     enemyRef.current.x = 600;
+    // Reset enemy state correctly for new game
+    enemyRef.current.state = 'idle';
+    enemyRef.current.frameIndex = 0;
+    enemyRef.current.deadFrames = enemyRef.current.deadFrames || []; // Ensure not undefined
+    
     particlesRef.current = [];
+    victoryTimerRef.current = 0;
     const loop = () => {
         update();
         draw();
@@ -431,10 +493,51 @@ export default function GameTab() {
 
   const update = () => {
     if (playerRef.current.hp <= 0) setPhase('gameover');
-    if (enemyRef.current.hp <= 0) setPhase('victory');
+    
+    // Victory Check with Delay
+    if (enemyRef.current.hp <= 0) {
+        // If already dead, wait
+        if (enemyRef.current.state === 'dead') {
+            // Check if animation finished (held at last frame)
+            const isAnimFinished = enemyRef.current.frames && 
+                                   enemyRef.current.frameIndex >= enemyRef.current.frames.length - 1;
+            
+            if (isAnimFinished) {
+                victoryTimerRef.current++;
+                if (victoryTimerRef.current > 180) { // 3 seconds at 60fps
+                    setPhase('victory');
+                }
+            }
+        }
+    }
+    
     updateEntity(playerRef.current, keysPressed.current);
     updateAI(enemyRef.current, playerRef.current);
     updateParticles();
+  };
+
+  const checkBodyCollision = (mover: Entity, target: Entity, nextX: number) => {
+      // Body Hitbox (Make it slightly narrower than full width for better feel)
+      const mW = mover.width * 0.4; 
+      const tW = target.width * 0.4;
+      
+      const mLeft = nextX - mW/2;
+      const mRight = nextX + mW/2;
+      const tLeft = target.x - tW/2;
+      const tRight = target.x + tW/2;
+      
+      const xOverlap = mLeft < tRight && mRight > tLeft;
+      
+      // Y Overlap (Allow jumping over)
+      // Height is typically 200. 
+      const mBot = mover.y;
+      const mTop = mover.y - mover.height * 0.8; // Approximate hitbox height
+      const tBot = target.y;
+      const tTop = target.y - target.height * 0.8;
+      
+      const yOverlap = mTop < tBot && mBot > tTop;
+      
+      return xOverlap && yOverlap;
   };
 
   const updateEntity = (e: Entity, keys: { [key: string]: boolean }) => {
@@ -444,9 +547,12 @@ export default function GameTab() {
             e.frames = e.deadFrames;
             e.frameIndex = 0;
             e.frameTimer = 0;
+        } else if (!e.deadFrames) {
+            // For Stickman or if no dead frames
+            // Just stay in dead state
         }
         
-        if (e.frames === e.deadFrames) {
+        if (e.frames === e.deadFrames && e.frames) {
              e.frameTimer++;
              if (e.frameTimer > 10) { // Slow animation for death
                  e.frameTimer = 0;
@@ -464,7 +570,10 @@ export default function GameTab() {
     if (e.state === 'hit') {
         if (e.hitTimer > 0) {
             e.hitTimer--;
-            if (e.hitTimer === 0) e.state = 'idle';
+            if (e.hitTimer === 0) {
+                 e.state = 'idle';
+                 e.frameIndex = 0; // Reset Animation
+            }
         }
         // Apply Gravity during hit
         e.y += e.vy;
@@ -472,6 +581,10 @@ export default function GameTab() {
         else e.vy += GRAVITY;
         
         e.x += e.vx; // Knockback
+        
+        // Friction to stop knockback
+        e.vx *= 0.9;
+        
         return;
     }
 
@@ -556,7 +669,20 @@ export default function GameTab() {
     }
 
     // Physics 2D
-    e.x += e.vx; 
+    const nextX = e.x + e.vx;
+    
+    // Body Collision Check (Prevent passing through)
+    let canMove = true;
+    if (e.type === 'player' && enemyRef.current.hp > 0) {
+        if (checkBodyCollision(e, enemyRef.current, nextX)) {
+            canMove = false;
+        }
+    }
+    
+    if (canMove) {
+        e.x = nextX; 
+    }
+    
     // Boundary checks
     if (e.x < 0) e.x = 0; if (e.x > CANVAS_WIDTH) e.x = CANVAS_WIDTH;
     
@@ -622,27 +748,92 @@ export default function GameTab() {
   };
 
   const updateAI = (enemy: Entity, player: Entity) => {
-      if (enemy.state === 'hit' || enemy.state === 'dead') return;
+      if (enemy.state === 'hit') {
+          // Hit Stun recovery for Enemy
+          if (enemy.hitTimer > 0) {
+              enemy.hitTimer--;
+              if (enemy.hitTimer === 0) {
+                   enemy.state = 'idle';
+                   enemy.frameIndex = 0;
+              }
+          }
+          
+          // Apply knockback physics to enemy
+          enemy.y += enemy.vy;
+          if (enemy.y >= GROUND_Y) { enemy.y = GROUND_Y; enemy.vy = 0; }
+          else enemy.vy += GRAVITY;
+          
+          enemy.x += enemy.vx; 
+          enemy.vx *= 0.9; // Friction
+
+          return;
+      }
+
+      if (enemy.state === 'dead') {
+          enemy.frameTimer++;
+          if (enemy.frameTimer > 25) { // Slow down death animation (was default speed)
+              enemy.frameTimer = 0;
+              if (enemy.frames && enemy.frames.length > 0) {
+                  if (enemy.frameIndex < enemy.frames.length - 1) {
+                      enemy.frameIndex++;
+                  }
+              }
+          }
+          return;
+      }
       
       enemy.animFrame += 0.2;
 
       const dx = player.x - enemy.x;
       const dist = Math.abs(dx);
+      const attackRange = 80;
       
       // Simple AI
-      if (dist > 80) {
-          enemy.vx = dx > 0 ? 3 : -3;
-          enemy.state = 'move';
+      // If blocked by collision, try to attack
+      const isBlocked = Math.abs(dx) < 120 && Math.abs(dx) > 30 && (enemy.x === 0 || enemy.x === CANVAS_WIDTH || Math.abs(dx) < 60); // Basic heuristic
+
+      if (dist < 100 || (dist < 150 && Math.random() < 0.05)) { // Increased range and chance
+          // In Attack Range
+          enemy.vx = 0;
+          enemy.state = 'idle'; // Default state when close
+          
+          // Face player
           enemy.facing = dx > 0 ? 1 : -1;
+
+          // Random Attack Chance
+          // Attack more aggressively if close
+          if (enemy.state !== 'attack' && Math.random() < 0.05) { 
+              performAttack(enemy, 'attack');
+          }
       } else {
-          enemy.vx = 0; 
-          // Attack chance
-          if (Math.random() < 0.02 && enemy.state !== 'attack') performAttack(enemy, 'attack');
-          else enemy.state = 'idle';
+          // Chase Player
+          if (enemy.state !== 'attack') {
+            enemy.vx = dx > 0 ? 2 : -2;
+            enemy.state = 'move';
+            enemy.facing = dx > 0 ? 1 : -1;
+          }
       }
       
       // Physics 2D
-      enemy.x += enemy.vx; 
+      const nextX = enemy.x + enemy.vx;
+      
+      // Body Collision Check for Enemy
+      let canMove = true;
+      if (player.hp > 0) {
+          if (checkBodyCollision(enemy, player, nextX)) {
+              canMove = false;
+              // If blocked by player, FORCE ATTACK
+              if (enemy.state !== 'attack' && enemy.state !== 'hit' && enemy.state !== 'dead') {
+                  enemy.vx = 0;
+                  performAttack(enemy, 'attack');
+              }
+          }
+      }
+
+      if (canMove) {
+          enemy.x = nextX;
+      }
+      
       if (enemy.x < 0) enemy.x = 0; if (enemy.x > CANVAS_WIDTH) enemy.x = CANVAS_WIDTH;
 
       enemy.y += enemy.vy;
@@ -653,32 +844,98 @@ export default function GameTab() {
           enemy.vy += GRAVITY;
       }
 
-      // Animation update
-      enemy.frameTimer++;
-      if (enemy.frameTimer > 12) {
-          enemy.frameTimer = 0;
-          if (enemy.frames && enemy.frames.length > 0) {
-             enemy.frameIndex++;
-             if (enemy.state === 'attack') {
-                if (enemy.frameIndex >= 8) { enemy.frameIndex = 0; enemy.state = 'idle'; if(enemy.attackBox) enemy.attackBox.active = false; }
-                if (enemy.frameIndex === 4 && enemy.attackBox) enemy.attackBox.active = true;
-             } else {
-                 if (enemy.frameIndex > 1) enemy.frameIndex = 0;
-             }
-          }
-      }
-      
-      // Update Attack Box
-      if (enemy.state === 'attack' && enemy.attackBox) {
-          enemy.attackBox.x = enemy.x + (enemy.facing === 1 ? 0 : -enemy.attackBox.w);
-          enemy.attackBox.y = enemy.y - 100;
+      if (enemy.y > GROUND_Y) {
+          enemy.y = GROUND_Y;
+          enemy.vy = 0;
+      } else if (enemy.y < GROUND_Y) {
+          enemy.vy += GRAVITY;
       }
 
-      // Enemy Hitbox
+      // Unified Animation Update (Handles both Stickman and Sprite)
+      enemy.frameTimer++;
+      // Slower animation speed for Enemy (was 6/8, now 10/12)
+      const animSpeed = enemy.state === 'move' ? 10 : 12;
+      
+      if (enemy.frameTimer > animSpeed) {
+          enemy.frameTimer = 0;
+
+          // Case 1: Sprite Animation (If frames exist)
+          if (enemy.frames && enemy.frames.length > 0) {
+             // Loop or One-shot based on state
+             if (enemy.state === 'attack') {
+                 enemy.frameIndex++;
+                 if (enemy.frameIndex >= enemy.frames.length) {
+                     enemy.frameIndex = 0; enemy.state = 'idle';
+                     if (enemy.attackBox) enemy.attackBox.active = false;
+                     
+                     // Add random cooldown after attack
+                     enemy.vx = 0; // Stop moving briefly
+
+                     // Reset to IDLE frames after attack
+                     if (enemy.frames !== enemy.attackFrames && enemyRef.current.frames) {
+                         enemy.frames = enemyRef.current.frames; // Restore idle frames
+                         if(enemy.frames[0]) enemy.image = enemy.frames[0];
+                     }
+                 } else {
+                     // Active Hitbox logic for Sprite
+                     // Active for a longer window in the middle
+                     const mid = Math.floor(enemy.frames.length / 2);
+                     if (enemy.frameIndex >= mid - 1 && enemy.frameIndex <= mid + 1 && enemy.attackBox) {
+                         enemy.attackBox.active = true;
+                     }
+                 }
+             } else {
+                 // Idle/Move Loop
+                 enemy.frameIndex = (enemy.frameIndex + 1) % enemy.frames.length;
+             }
+          } 
+          // Case 2: Stickman Animation Fallback (No frames)
+          else {
+              if (enemy.state === 'attack') {
+                  enemy.frameIndex++;
+                  // Stickman Attack Duration (approx 20 frames)
+                  if (enemy.frameIndex > 20) {
+                      enemy.state = 'idle';
+                      enemy.frameIndex = 0;
+                      if (enemy.attackBox) enemy.attackBox.active = false;
+                  } else {
+                      // Active hitbox mid-animation
+                      if (enemy.frameIndex >= 5 && enemy.frameIndex <= 15 && enemy.attackBox) {
+                          enemy.attackBox.active = true;
+                      } else if (enemy.attackBox) {
+                          enemy.attackBox.active = false;
+                      }
+                  }
+              }
+          }
+      }
+
+      // Ensure frames are set correctly based on state (For Sprites)
+      if (enemy.frames) {
+          if (enemy.state === 'idle' && enemyRef.current.frames) { /* default set in load */ }
+          else if (enemy.state === 'move' && enemyRef.current.frames) { /* walk frames if any */ }
+          else if (enemy.state === 'attack') {
+               if (enemy.attackCombo === 2 && enemy.attack2Frames) enemy.frames = enemy.attack2Frames;
+               else if (enemy.attackFrames) enemy.frames = enemy.attackFrames;
+          }
+          else if (enemy.state === 'hit' && enemy.frames) { /* hit frames if any */ }
+      }
+
+      // Update Attack Box Position
+      if (enemy.state === 'attack' && enemy.attackBox) {
+          // Adjust Hitbox based on facing (Left/Right)
+          // Since sprites are centered, we offset from center
+          // Width 80, height 80
+          const reach = 60;
+          enemy.attackBox.x = enemy.x + (enemy.facing === 1 ? reach/2 : -reach - enemy.attackBox.w + 20);
+          enemy.attackBox.y = enemy.y - 80; // Lower it a bit (was -100) to hit body
+      }
+
+      // Enemy Hitbox Collision Check vs Player
       if (enemy.attackBox && enemy.attackBox.active) {
           if (checkCollision(enemy.attackBox, player)) {
-              takeDamage(player, 5, enemy.facing, 5);
-              enemy.attackBox.active = false;
+              takeDamage(player, 10, enemy.facing, 10); // Player takes damage
+              enemy.attackBox.active = false; // One hit per attack
               spawnParticle(player.x, player.y - 50, 'hit');
           }
       }
@@ -842,10 +1099,48 @@ export default function GameTab() {
           ctx.save();
           
           if (e.type === 'enemy') {
-            // Stickman specific transform
-            ctx.translate(e.x, spriteY); // Anchor at feet
-            ctx.scale(e.facing, 1);
-            drawStickman(ctx, e);
+             // Force Sprite Drawing for Enemy (No more Stickman)
+             // Adjust Y slightly up to match pixel character foot level visually
+             const drawY = spriteY - 5;
+
+             // Enemy Sprite Logic (Assuming sprites face LEFT by default based on user feedback)
+             if (e.facing === -1) {
+                 // Facing Left (Default for these sprites) -> Draw normally
+                 if (e.image) {
+                    let img = e.image;
+                    // Use frames if available
+                    if (e.frames && e.frames.length > 0) {
+                        // Wrap index safely
+                        const idx = e.frameIndex % e.frames.length;
+                        if(e.frames[idx]) img = e.frames[idx];
+                    }
+                    ctx.drawImage(img, e.x - e.width/2, drawY - e.height, e.width, e.height);
+                 } else {
+                    // Fallback Box
+                    ctx.fillStyle = e.color; 
+                    ctx.fillRect(e.x - e.width/2, drawY - e.height, e.width, e.height);
+                 }
+             } else {
+                 // Facing Right -> Flip horizontally
+                 ctx.save();
+                 ctx.translate(e.x, drawY);
+                 ctx.scale(-1, 1); // Flip
+                 if (e.image) {
+                    let img = e.image;
+                    if (e.frames && e.frames.length > 0) {
+                        const idx = e.frameIndex % e.frames.length;
+                        if(e.frames[idx]) img = e.frames[idx];
+                    }
+                    // Draw centered at 0,0 (since we translated to x)
+                    ctx.drawImage(img, -e.width/2, -e.height, e.width, e.height);
+                 } else {
+                    ctx.fillStyle = e.color;
+                    ctx.fillRect(-e.width/2, -e.height, e.width, e.height);
+                 }
+                 ctx.restore();
+             }
+             
+             // drawStickman(ctx, e); // DISABLED
           } else {
              // Player (Original Logic)
              if (e.facing === -1) { ctx.scale(-1, 1); ctx.translate(-e.x * 2, 0); }
