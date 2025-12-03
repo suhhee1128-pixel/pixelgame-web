@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (action_type !== 'attack' && action_type !== 'jump') {
+    if (action_type !== 'attack' && action_type !== 'jump' && action_type !== 'dead' && action_type !== 'defense') {
       return NextResponse.json(
-        { success: false, error: 'Please select a valid action type (attack or jump).' },
+        { success: false, error: 'Please select a valid action type (attack, jump, dead, or defense).' },
         { status: 400 }
       );
     }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const frames = await generator.generateSpriteAnimation(
       referencePath,
-      action_type as 'attack' | 'jump'
+      action_type as 'attack' | 'jump' | 'dead' | 'defense'
     );
 
     return NextResponse.json({

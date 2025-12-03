@@ -215,8 +215,15 @@ export class GameAssetGenerator {
 
   async generateSpriteAnimation(
     referenceImagePath: string,
-    actionType: 'attack' | 'jump'
+    actionType: 'attack' | 'jump' | 'dead' | 'defense'
   ): Promise<{ imagePath: string; imageUrl: string }[]> {
+    if (actionType === 'dead') {
+      return this.generateDeadAnimation(referenceImagePath);
+    }
+    if (actionType === 'defense') {
+      return this.generateDefenseAnimation(referenceImagePath);
+    }
+
     const generatedImages: string[] = [];
     
     // Add original reference image as first frame
@@ -539,6 +546,168 @@ No peace, no smile — just weight and stillness. Transparent background. SAME w
         imagePath: imgPath,
         imageUrl: `/api/images/${relativePath.replace(/\\/g, '/')}`
       };
+    });
+  }
+
+  async generateDefenseAnimation(
+    referenceImagePath: string
+  ): Promise<{ imagePath: string; imageUrl: string }[]> {
+    const generatedImages: string[] = [];
+    
+    // Add original reference image as first frame
+    generatedImages.push(referenceImagePath);
+
+    const framePrompts = {
+      frame1_idle_guard: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, idle defensive stance:
+head slightly tilted right, eyes calm but alert,
+torso upright with slight tension,
+right hand holding the SAME weapon firmly but lowered in a guarded resting position,
+left arm raised slightly near torso forming a natural defensive posture,
+feet shoulder-width apart, weight centered,
+a faint soft glow at the weapon tip,
+transparent background.
+Weapon consistency rule: The weapon must remain EXACTLY the same as in the reference image — shape, size, color, and all design details unchanged.
+CRITICAL: Character must face RIGHT direction.`,
+      frame2_shield_up: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, defensive “shield-up” pose:
+head focused forward,
+torso leaning slightly backward for bracing,
+right arm lifting weapon diagonally upward as if blocking incoming force,
+left hand raised near chest for balance or secondary guard,
+feet anchored strongly with weight shifted back,
+small protective energy shimmer forming around weapon tip,
+transparent background.
+CRITICAL: Character must face RIGHT direction.`,
+      frame3_pre_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, preparing to block impact:
+head sharply focused,
+torso leaning forward slightly,
+right arm holding weapon horizontally/diagonally in a hardened guard position,
+left arm tensed and positioned near torso for stability,
+front foot pressing firmly into the ground,
+weapon tip emitting brighter defensive energy with thin shimmering lines,
+transparent background.
+CRITICAL: Character must face RIGHT direction.`,
+      frame4_impact_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, blocking an incoming strike:
+head determined, eyes tight,
+torso braced and compressed from force,
+right arm fully engaged holding weapon in a strong blocking angle,
+left arm extended backward to counterbalance recoil,
+front leg bent absorbing impact,
+weapon tip generating a strong defensive aura with bright burst sparks at point of contact,
+transparent background.
+CRITICAL: Character must face RIGHT direction.`,
+      frame5_block_shockwave: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, receiving major impact:
+head clenched,
+torso leaning forward into the force,
+right arm still holding weapon firmly blocking the attack,
+left arm extended wide for balance,
+front foot nailed to the ground,
+a large defensive energy burst (white core + color shockwave rings) exploding outward upon impact,
+scattered spark particles around weapon tip,
+transparent background.
+CRITICAL: Character must face RIGHT direction.`,
+      frame6_guard_recovery: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
+
+Pixel-art character facing RIGHT, post-block recovery stance:
+head lowered slightly but still facing right,
+expression calm but focused,
+torso leaned forward holding weapon still lifted in guard,
+both hands steady but relaxed,
+feet unchanged from previous frame,
+energy at weapon tip fading — soft pink or blue residual rings expanding outwards,
+tiny spark fragments dissipating into transparency,
+light motion blur showing final energy dissipation,
+transparent background.
+CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions, and weapon.`
+    };
+
+    const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
+    const referenceImageBuffer = await fs.readFile(referenceImagePath);
+    const referenceImageBase64 = referenceImageBuffer.toString('base64');
+
+    for (const [frameName, prompt] of Object.entries(framePrompts)) {
+      try {
+        const contents = [
+          prompt,
+          {
+            inlineData: {
+              data: referenceImageBase64,
+              mimeType: 'image/png'
+            }
+          }
+        ];
+
+        const result = await model.generateContent(contents);
+        const response = await result.response;
+
+        const timestamp = Date.now();
+        const filename = `defense_${frameName}_${timestamp}.png`;
+        const outputPath = path.join(this.characterDir, filename);
+
+        const imageData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (imageData) {
+          const imageBuffer = Buffer.from(imageData, 'base64');
+          await fs.writeFile(outputPath, imageBuffer);
+          generatedImages.push(outputPath);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      } catch (error) {
+        console.error(`Error generating ${frameName}:`, error);
+      }
+    }
+
+    // Create combined sprite sheet
+    if (generatedImages.length >= 7) {
+      try {
+        console.log('🎨 Creating combined sprite sheet...');
+        const firstImageMeta = await sharp(generatedImages[0]).metadata();
+        const baseHeight = firstImageMeta.height || 100;
+        
+        const resizedImages = await Promise.all(
+          generatedImages.map(async (imgPath) => {
+            const metadata = await sharp(imgPath).metadata();
+            const aspectRatio = (metadata.width || 100) / (metadata.height || 100);
+            const newWidth = Math.round(baseHeight * aspectRatio);
+            const buffer = await sharp(imgPath)
+              .resize(newWidth, baseHeight, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+              .png().toBuffer();
+            return { buffer, width: newWidth };
+          })
+        );
+        
+        const totalWidth = resizedImages.reduce((sum, img) => sum + img.width, 0);
+        let leftOffset = 0;
+        const composites = resizedImages.map((img) => {
+          const composite = { input: img.buffer, left: leftOffset, top: 0 };
+          leftOffset += img.width;
+          return composite;
+        });
+        
+        const timestamp = Date.now();
+        const combinedFilename = `defense_combined_${timestamp}.png`;
+        const combinedPath = path.join(this.characterDir, combinedFilename);
+        
+        await sharp({
+          create: { width: totalWidth, height: baseHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+        }).composite(composites).png().toFile(combinedPath);
+        
+        console.log(`✅ Combined sprite sheet saved: ${combinedPath}`);
+        generatedImages.push(combinedPath);
+      } catch (error) { console.error('⚠️ Failed to create combined sprite sheet:', error); }
+    }
+    
+    return generatedImages.map(imgPath => {
+      const relativePath = path.relative(this.outputDir, imgPath);
+      return { imagePath: imgPath, imageUrl: `/api/images/${relativePath.replace(/\\/g, '/')}` };
     });
   }
 
