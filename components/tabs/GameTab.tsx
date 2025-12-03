@@ -30,6 +30,7 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
     hitTimer: number;
     isDashing?: boolean; // Added
     attackCombo?: number; // Added
+    attackCooldown?: number; // Added for AI
   }
 
 const CANVAS_WIDTH = 800;
@@ -770,6 +771,13 @@ export default function GameTab() {
       }
 
       if (enemy.state === 'dead') {
+          // Ensure dead frames are used
+          if (enemy.deadFrames && enemy.frames !== enemy.deadFrames) {
+              enemy.frames = enemy.deadFrames;
+              enemy.frameIndex = 0;
+              enemy.frameTimer = 0;
+          }
+
           enemy.frameTimer++;
           if (enemy.frameTimer > 25) { // Slow down death animation (was default speed)
               enemy.frameTimer = 0;
@@ -783,6 +791,11 @@ export default function GameTab() {
       }
       
       enemy.animFrame += 0.2;
+
+      // Attack Cooldown Logic
+      if (enemy.attackCooldown && enemy.attackCooldown > 0) {
+          enemy.attackCooldown--;
+      }
 
       const dx = player.x - enemy.x;
       const dist = Math.abs(dx);
@@ -802,7 +815,8 @@ export default function GameTab() {
 
           // Random Attack Chance
           // Attack more aggressively if close
-          if (enemy.state !== 'attack' && Math.random() < 0.05) { 
+          // Check Cooldown
+          if (enemy.state !== 'attack' && (!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.05) { 
               performAttack(enemy, 'attack');
           }
       } else {
@@ -822,8 +836,8 @@ export default function GameTab() {
       if (player.hp > 0) {
           if (checkBodyCollision(enemy, player, nextX)) {
               canMove = false;
-              // If blocked by player, FORCE ATTACK
-              if (enemy.state !== 'attack' && enemy.state !== 'hit' && enemy.state !== 'dead') {
+              // If blocked by player, FORCE ATTACK if cooldown ready
+              if (enemy.state !== 'attack' && enemy.state !== 'hit' && enemy.state !== 'dead' && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
                   enemy.vx = 0;
                   performAttack(enemy, 'attack');
               }
@@ -868,7 +882,9 @@ export default function GameTab() {
                      enemy.frameIndex = 0; enemy.state = 'idle';
                      if (enemy.attackBox) enemy.attackBox.active = false;
                      
-                     // Add random cooldown after attack
+                     // Add Cooldown
+                     enemy.attackCooldown = 60 + Math.floor(Math.random() * 60); // 1~2 seconds cooldown
+                     
                      enemy.vx = 0; // Stop moving briefly
 
                      // Reset to IDLE frames after attack
@@ -898,6 +914,7 @@ export default function GameTab() {
                       enemy.state = 'idle';
                       enemy.frameIndex = 0;
                       if (enemy.attackBox) enemy.attackBox.active = false;
+                      enemy.attackCooldown = 60; // Cooldown for stickman too
                   } else {
                       // Active hitbox mid-animation
                       if (enemy.frameIndex >= 5 && enemy.frameIndex <= 15 && enemy.attackBox) {
@@ -911,9 +928,20 @@ export default function GameTab() {
       }
 
       // Ensure frames are set correctly based on state (For Sprites)
+      // This fixes the issue where enemy walks with attack sprites
       if (enemy.frames) {
-          if (enemy.state === 'idle' && enemyRef.current.frames) { /* default set in load */ }
-          else if (enemy.state === 'move' && enemyRef.current.frames) { /* walk frames if any */ }
+          if (enemy.state === 'idle' && enemyRef.current.frames) { 
+              // Use default/idle frames
+              if (enemy.frames !== enemyRef.current.frames) enemy.frames = enemyRef.current.frames;
+          }
+          else if (enemy.state === 'move') { 
+              // Use walk frames if available, otherwise idle frames
+              // Currently we don't have specific walk frames, so use idle frames or jump frames if appropriate
+              // For now, sticking to idle frames for movement to avoid sliding attack sprite
+              if (enemyRef.current.frames && enemy.frames !== enemyRef.current.frames) {
+                  enemy.frames = enemyRef.current.frames;
+              }
+          }
           else if (enemy.state === 'attack') {
                if (enemy.attackCombo === 2 && enemy.attack2Frames) enemy.frames = enemy.attack2Frames;
                else if (enemy.attackFrames) enemy.frames = enemy.attackFrames;

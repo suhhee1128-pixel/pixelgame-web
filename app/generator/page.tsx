@@ -1,22 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import DeadSpriteTab from '@/components/tabs/DeadSpriteTab';
 import GameTab from '@/components/tabs/GameTab';
-import BattleTab from '@/components/tabs/BattleTab';
-import Link from 'next/link';
-
-type TabType = 'dead-sprite' | 'game' | 'battle';
 
 export default function GeneratorPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('dead-sprite');
-
-  const tabs = [
-    { id: 'dead-sprite' as TabType, label: '💀 Dead Sprite', icon: '💀' },
-    { id: 'game' as TabType, label: '🕹️ Game', icon: '🕹️' },
-    { id: 'battle' as TabType, label: '⚔️ Battle', icon: '⚔️' },
-  ];
-
   return (
     <main className="min-h-screen pixel-bg">
       <div className="container mx-auto px-4 py-8">
@@ -38,35 +24,10 @@ export default function GeneratorPage() {
           </a>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="pixel-tab-container mb-6">
-          <div className="px-4">
-            <div className="flex flex-wrap gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={activeTab === tab.id ? 'pixel-tab-active' : 'pixel-tab'}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tab Content */}
-          <div className="pt-6 px-4">
-            {activeTab === 'dead-sprite' && <DeadSpriteTab />}
-            {activeTab === 'game' && <GameTab />}
-            {activeTab === 'battle' && <BattleTab />}
-          </div>
+        <div className="w-full">
+          <GameTab />
         </div>
       </div>
     </main>
   );
 }
-
-
-
-
-
