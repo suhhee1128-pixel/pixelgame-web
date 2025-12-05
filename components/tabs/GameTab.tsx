@@ -1232,8 +1232,8 @@ export default function GameTab() {
   const renderLeftPanel = () => {
       if (phase === 'creation') {
           return (
-            <div className="flex flex-col gap-3 h-auto pr-2">
-                <div className="p-3 border-4 border-black bg-white">
+            <div className="flex flex-col gap-3 h-full pr-2">
+                <div className="p-3 border-4 border-black bg-white shrink-0">
                     <label className="pixel-label block text-sm mb-1 text-black">CHARACTER DESCRIPTION</label>
                     <textarea 
                         value={description} 
@@ -1243,7 +1243,7 @@ export default function GameTab() {
                         rows={2} 
                     />
                 </div>
-                <div className="p-3 border-4 border-black bg-white">
+                <div className="p-3 border-4 border-black bg-white shrink-0">
                     <label className="pixel-label block text-sm mb-1 text-black">HAIR COLOR / PRIMARY COLOR</label>
                     <div className="flex flex-wrap gap-1">
                         {colorOptions.map((option) => (
@@ -1251,8 +1251,8 @@ export default function GameTab() {
                         ))}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 h-auto">
-                    <div className="p-3 border-4 border-black bg-white">
+                <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
+                    <div className="p-3 h-full overflow-y-auto border-4 border-black bg-white">
                         <label className="pixel-label block text-sm mb-1 text-black">MOOD</label>
                         <div className="space-y-1">
                             {moodOptions.map((option) => (
@@ -1263,7 +1263,7 @@ export default function GameTab() {
                             ))}
                         </div>
                     </div>
-                    <div className="p-3 border-4 border-black bg-white">
+                    <div className="p-3 h-full overflow-y-auto border-4 border-black bg-white">
                         <label className="pixel-label block text-sm mb-1 text-black">WEAPON</label>
                         <div className="flex flex-col gap-1">
                             {weaponOptions.map((option) => (
@@ -1282,8 +1282,8 @@ export default function GameTab() {
           );
       } else if (phase === 'sprites') {
           return (
-            <div className="flex flex-col gap-3 h-full overflow-y-auto pr-2">
-                 <div className="p-3 border-4 border-black bg-white">
+            <div className="flex flex-col gap-3 h-full pr-2">
+                 <div className="p-3 border-4 border-black bg-white shrink-0">
                     <label className="pixel-text block text-sm mb-2 font-bold text-black">ANIMATION TYPE</label>
                     <div className="flex flex-wrap gap-2 mb-2">
                        <button onClick={() => setSpriteActionType('attack')} className={`px-3 py-1 border-2 ${spriteActionType === 'attack' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>ATTACK</button>
@@ -1332,11 +1332,11 @@ export default function GameTab() {
   const renderRightPanel = () => {
       if (phase === 'creation') {
           return (
-            <div className="h-auto flex flex-col p-3 border-4 border-black bg-white">
+            <div className="h-full flex flex-col p-3 border-4 border-black bg-white">
                 <h3 className="pixel-label text-base mb-2 text-center text-black">PREVIEW</h3>
                 
                 {/* Preview Area - Aspect Square */}
-                <div className="w-full aspect-square bg-gray-100 border-2 border-black relative flex items-center justify-center overflow-hidden mb-3">
+                <div className="w-full aspect-square bg-gray-100 border-2 border-black relative flex items-center justify-center overflow-hidden mb-3 shrink-0">
                     {!generatedImage && (
                         <div className="flex flex-col items-center justify-center gap-4 p-4 text-center">
                             <div className="relative">
@@ -1428,12 +1428,19 @@ export default function GameTab() {
                   ) : <div className="h-full flex items-center justify-center text-gray-400 text-xs">No frames yet</div>}
                 </div>
                 
-                {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
-                    <div className="mt-3 flex flex-col gap-2 shrink-0">
-                        <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 border-black">DOWNLOAD CURRENT (ZIP)</button>
-                        <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 animate-pulse border-black">START BATTLE!</button>
+                <div className="mt-3 flex flex-col gap-2 shrink-0">
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => setPhase('creation')} className="pixel-button w-full bg-gray-500 text-white py-2 text-sm hover:bg-gray-600 border-black">BACK</button>
+                        {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) ? (
+                            <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 border-black">DOWNLOAD (ZIP)</button>
+                        ) : (
+                            <button disabled className="pixel-button w-full bg-gray-300 text-gray-500 py-2 text-sm border-black cursor-not-allowed">DOWNLOAD (ZIP)</button>
+                        )}
                     </div>
-                )}
+                    {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
+                        <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 animate-pulse border-black">START BATTLE!</button>
+                    )}
+                </div>
             </div>
           );
       }
@@ -1442,13 +1449,13 @@ export default function GameTab() {
 
   if (phase === 'creation' || phase === 'sprites') {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-y-auto">
-            <div className="w-full max-w-6xl border-4 border-black bg-white p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 shadow-xl relative">
+        <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-hidden">
+            <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-white p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 shadow-xl relative">
                 {/* Decorative pixel corners or title could go here if needed */}
-                <div className="lg:col-span-2 min-h-0">
+                <div className="lg:col-span-2 h-full min-h-0">
                     {renderLeftPanel()}
                 </div>
-                <div className="min-h-0">
+                <div className="h-full min-h-0">
                     {renderRightPanel()}
                 </div>
             </div>
