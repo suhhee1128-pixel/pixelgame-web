@@ -591,7 +591,7 @@ export default function GameTab() {
 
     // Defense
     if (e.type === 'player' && keys['KeyC']) {
-        if (e.state !== 'attack' && e.state !== 'hit' && e.state !== 'dead') {
+        if (e.state !== 'attack') {
             e.state = 'defend';
             e.vx = 0;
             if (e.defenseFrames && e.frames !== e.defenseFrames) {
@@ -816,7 +816,7 @@ export default function GameTab() {
           // Random Attack Chance
           // Attack more aggressively if close
           // Check Cooldown
-          if (enemy.state !== 'attack' && (!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.05) { 
+          if ((!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.05) { 
               performAttack(enemy, 'attack');
           }
       } else {
@@ -837,7 +837,7 @@ export default function GameTab() {
           if (checkBodyCollision(enemy, player, nextX)) {
               canMove = false;
               // If blocked by player, FORCE ATTACK if cooldown ready
-              if (enemy.state !== 'attack' && enemy.state !== 'hit' && enemy.state !== 'dead' && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
+              if (enemy.state !== 'attack' && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
                   enemy.vx = 0;
                   performAttack(enemy, 'attack');
               }
@@ -946,7 +946,6 @@ export default function GameTab() {
                if (enemy.attackCombo === 2 && enemy.attack2Frames) enemy.frames = enemy.attack2Frames;
                else if (enemy.attackFrames) enemy.frames = enemy.attackFrames;
           }
-          else if (enemy.state === 'hit' && enemy.frames) { /* hit frames if any */ }
       }
 
       // Update Attack Box Position
@@ -1464,26 +1463,17 @@ export default function GameTab() {
   }
 
   return (
-    <div className="w-full flex flex-col items-center p-4 bg-gray-900 min-h-screen">
-        <div className="w-full max-w-4xl pixel-box bg-white p-4 mb-4">
-            <h1 className="text-2xl font-bold pixel-text text-center">PIXEL FIGHTER</h1>
-            <div className="flex justify-center gap-4 mt-2">
-                <div className={`px-4 py-1 ${phase === 'creation' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>1. CREATE</div>
-                <div className={`px-4 py-1 ${phase === 'sprites' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>2. SPRITES</div>
-                <div className={`px-4 py-1 ${phase === 'playing' ? 'bg-red-500 text-white' : 'bg-gray-200'}`}>3. BATTLE</div>
-            </div>
-        </div>
-        <div className="relative w-full max-w-4xl">
-            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="w-full border-4 border-white shadow-xl bg-gray-800 pixelated" />
+    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-hidden">
+        <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-black p-0 shadow-xl relative flex items-center justify-center">
+            <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="w-full h-full object-contain pixelated" />
             {(phase === 'gameover' || phase === 'victory') && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
                     <div className="text-center text-white">
                         <h2 className="text-4xl mb-4 pixel-text">{phase === 'victory' ? 'YOU WIN!' : 'GAME OVER'}</h2>
-                        <button onClick={() => setPhase('creation')} className="bg-yellow-500 text-black px-6 py-3 pixel-button">NEW GAME</button>
+                        <button onClick={() => setPhase('creation')} className="bg-yellow-500 text-black px-6 py-3 pixel-button border-2 border-white hover:bg-yellow-400">NEW GAME</button>
                     </div>
                 </div>
             )}
-            {/* Remove old text instructions, now in Canvas */}
         </div>
     </div>
   );
