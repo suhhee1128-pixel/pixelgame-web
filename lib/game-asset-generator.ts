@@ -22,7 +22,8 @@ export class GameAssetGenerator {
       throw new Error('GEMINI_API_KEY is required but not found in environment variables.');
     }
 
-    this.outputDir = process.env.OUTPUT_DIR || 'data/output';
+    // Use /tmp in Vercel (serverless), otherwise use data/output
+    this.outputDir = process.env.VERCEL ? '/tmp/output' : (process.env.OUTPUT_DIR || 'data/output');
     this.characterDir = path.join(this.outputDir, 'characters');
     this.backgroundDir = path.join(this.outputDir, 'backgrounds');
     this.itemDir = path.join(this.outputDir, 'items');
@@ -30,11 +31,16 @@ export class GameAssetGenerator {
     this.imageGenModelName = process.env.IMAGE_MODEL_NAME || 'gemini-2.5-flash-image-preview';
 
     // Ensure output directories exist
-    fs.ensureDirSync(this.outputDir);
-    fs.ensureDirSync(this.characterDir);
-    fs.ensureDirSync(this.backgroundDir);
-    fs.ensureDirSync(this.itemDir);
-    fs.ensureDirSync(this.referenceDir);
+    try {
+      fs.ensureDirSync(this.outputDir);
+      fs.ensureDirSync(this.characterDir);
+      fs.ensureDirSync(this.backgroundDir);
+      fs.ensureDirSync(this.itemDir);
+      fs.ensureDirSync(this.referenceDir);
+    } catch (error) {
+      console.warn('Warning: Could not create output directories:', error);
+      // In Vercel, /tmp should always exist, but if it fails, we'll handle it gracefully
+    }
 
     this.genAI = new GoogleGenerativeAI(this.apiKey);
   }

@@ -8,7 +8,8 @@ export async function GET(
 ) {
   try {
     const imagePath = params.path.join('/');
-    const outputDir = process.env.OUTPUT_DIR || 'data/output';
+    // Use /tmp in Vercel (serverless), otherwise use data/output
+    const outputDir = process.env.VERCEL ? '/tmp/output' : (process.env.OUTPUT_DIR || 'data/output');
     
     // Security: prevent directory traversal
     const fullPath = path.join(outputDir, ...params.path);

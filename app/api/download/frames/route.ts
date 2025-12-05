@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const outputDir = process.env.OUTPUT_DIR || 'data/output';
+    // Use /tmp in Vercel (serverless), otherwise use data/output
+    const outputDir = process.env.VERCEL ? '/tmp/output' : (process.env.OUTPUT_DIR || 'data/output');
     const timestamp = Date.now();
     const zipFilename = `sprite_frames_${timestamp}.zip`;
 
