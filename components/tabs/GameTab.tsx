@@ -1229,192 +1229,229 @@ export default function GameTab() {
   };
 
   // --- RENDER ---
-  if (phase === 'creation') {
-      return (
-        <div className="w-full h-full min-h-[500px] flex flex-col items-center p-4 bg-gray-900 pixel-box overflow-y-auto">
-            <h2 className="pixel-label text-3xl mb-6 text-white" style={{ textShadow: '3px 3px 0px rgba(0, 0, 0, 0.5)' }}>PIXEL CHARACTER</h2>
-            <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="pixel-box" style={{ border: '3px solid #4169E1' }}>
-                        <label className="pixel-label block text-base mb-3">CHARACTER DESCRIPTION</label>
-                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder='e.g., "cute pink-haired warrior"' className="pixel-input w-full" rows={3} />
+  const renderLeftPanel = () => {
+      if (phase === 'creation') {
+          return (
+            <div className="flex flex-col gap-3 h-auto pr-2">
+                <div className="p-3 border-4 border-black bg-white">
+                    <label className="pixel-label block text-sm mb-1 text-black">CHARACTER DESCRIPTION</label>
+                    <textarea 
+                        value={description} 
+                        onChange={(e) => setDescription(e.target.value)} 
+                        placeholder='e.g., "cute pink-haired warrior"' 
+                        className="pixel-input w-full text-sm p-2 bg-white text-black border-2 border-black placeholder-gray-400" 
+                        rows={2} 
+                    />
+                </div>
+                <div className="p-3 border-4 border-black bg-white">
+                    <label className="pixel-label block text-sm mb-1 text-black">HAIR COLOR / PRIMARY COLOR</label>
+                    <div className="flex flex-wrap gap-1">
+                        {colorOptions.map((option) => (
+                            <button key={option.value} onClick={() => setColor(option.value)} className={`pixel-color-box w-6 h-6 ${color === option.value ? 'selected ring-2 ring-black' : ''}`} style={{ backgroundColor: option.color, borderColor: option.color === '#FFFFFF' || option.color === 'transparent' ? 'black' : option.color }} title={option.name} />
+                        ))}
                     </div>
-                    <div className="pixel-box">
-                        <label className="pixel-label block text-base mb-3">HAIR COLOR / PRIMARY COLOR</label>
-                        <div className="flex flex-wrap" style={{ gap: '5px', rowGap: '0px' }}>
-                            {colorOptions.map((option) => (
-                                <button key={option.value} onClick={() => setColor(option.value)} className={`pixel-color-box ${color === option.value ? 'selected' : ''}`} style={{ backgroundColor: option.color, borderColor: option.color === '#FFFFFF' || option.color === 'transparent' ? 'black' : option.color }} title={option.name} />
-                            ))}
-                        </div>
-                    </div>
-                    <div className="pixel-box">
-                        <label className="pixel-label block text-base mb-3">MOOD</label>
-                        <div className="space-y-2">
+                </div>
+                <div className="grid grid-cols-2 gap-3 h-auto">
+                    <div className="p-3 border-4 border-black bg-white">
+                        <label className="pixel-label block text-sm mb-1 text-black">MOOD</label>
+                        <div className="space-y-1">
                             {moodOptions.map((option) => (
                                 <div key={option} className="pixel-radio-label flex items-center gap-2 cursor-pointer" onClick={() => setMood(option)}>
-                                    <img src={mood === option ? "/radio-checked.png" : "/radio-unchecked.png"} alt={option} className="pixel-radio-image w-6 h-6" style={{ imageRendering: 'pixelated' }} />
-                                    <span className="pixel-text text-base select-none">{option}</span>
+                                    <img src={mood === option ? "/radio-checked.png" : "/radio-unchecked.png"} alt={option} className="pixel-radio-image w-4 h-4" style={{ imageRendering: 'pixelated' }} />
+                                    <span className="pixel-text text-sm select-none text-black">{option}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div className="pixel-box">
-                        <label className="pixel-label block text-base mb-3">WEAPON</label>
-                        <div className="flex flex-wrap" style={{ gap: '5px', rowGap: '0px' }}>
+                    <div className="p-3 border-4 border-black bg-white">
+                        <label className="pixel-label block text-sm mb-1 text-black">WEAPON</label>
+                        <div className="flex flex-col gap-1">
                             {weaponOptions.map((option) => (
-                                <button key={option} onClick={() => setWeapon(option)} className={`pixel-color-box ${weapon === option ? 'selected' : ''}`} style={{ backgroundColor: 'white', borderColor: 'black', minWidth: (option === 'Candy' || option === 'Baguette' || option === 'Magic Wand' || option === 'Sword') ? '180px' : '100px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingLeft: (option === 'Candy' || option === 'Baguette' || option === 'Magic Wand' || option === 'Sword') ? '20px' : '0px', paddingRight: (option === 'Candy' || option === 'Baguette' || option === 'Magic Wand' || option === 'Sword') ? '20px' : '0px' }} title={option}>
-                                    {option === 'Candy' && <img src="/candy-icon.png" alt="Candy" style={{ width: '50px', height: '50px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
-                                    {option === 'Baguette' && <img src="/baguette-icon.png" alt="Baguette" style={{ width: '50px', height: '50px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
-                                    {option === 'Magic Wand' && <img src="/magic-wand-icon.png" alt="Magic Wand" style={{ width: '50px', height: '50px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
-                                    {option === 'Sword' && <img src="/sword-icon.png" alt="Sword" style={{ width: '50px', height: '50px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
-                                    <span className="pixel-text text-base" style={{ color: 'black', textAlign: 'center' }}>{option}</span>
+                                <button key={option} onClick={() => setWeapon(option)} className={`pixel-color-box ${weapon === option ? 'selected ring-2 ring-black' : ''}`} style={{ backgroundColor: 'white', borderColor: 'black', borderWidth: '1px', width: '100%', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '8px', padding: '0 8px' }} title={option}>
+                                    {option === 'Candy' && <img src="/candy-icon.png" alt="Candy" style={{ width: '20px', height: '20px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
+                                    {option === 'Baguette' && <img src="/baguette-icon.png" alt="Baguette" style={{ width: '20px', height: '20px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
+                                    {option === 'Magic Wand' && <img src="/magic-wand-icon.png" alt="Magic Wand" style={{ width: '20px', height: '20px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
+                                    {option === 'Sword' && <img src="/sword-icon.png" alt="Sword" style={{ width: '20px', height: '20px', imageRendering: 'pixelated', objectFit: 'contain' }} />}
+                                    <span className="pixel-text text-xs text-black">{option}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <button onClick={generatePixelCharacter} disabled={genLoading} className="pixel-button w-full text-lg">
-                            {genLoading ? 'GENERATING...' : 'GENERATE (AI)'}
-                        </button>
-                        <label className="pixel-button w-full text-lg bg-purple-600 hover:bg-purple-700 text-white cursor-pointer flex items-center justify-center text-center">
-                            UPLOAD IMAGE
-                            <input type="file" accept="image/*" onChange={handleCharacterUpload} className="hidden" />
-                        </label>
-                    </div>
-                    {genLoading && (<div className="mt-4"><div className="flex items-center justify-between mb-2"><span className="pixel-text text-sm">Generating...</span><span className="pixel-text text-sm">{genProgress}%</span></div><div className="pixel-progress-bar"><div className="pixel-progress-bar-fill" style={{ width: `${genProgress}%` }}></div></div></div>)}
-                </div>
-                <div className="space-y-6">
-                    <div className="pixel-box">
-                        <h3 className="pixel-label text-lg mb-4">GENERATED PIXEL ART CHARACTER</h3>
-                        {!generatedImage && (
-                            <div className="relative mb-4" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                                <div style={{ position: 'relative', display: 'inline-block' }}>
-                                    <img src="/speech-bubble.png" alt="Speech bubble" style={{ imageRendering: 'pixelated', maxWidth: '150px' }} />
-                                    <p className="pixel-text" style={{ position: 'absolute', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', color: 'black', textAlign: 'center', fontSize: '24px', fontWeight: 'bold' }}>Hi</p>
-                                </div>
-                            </div>
-                        )}
-                        {generatedImage ? (
-                            <div className="relative">
-                                <img src={generatedImage} alt="Generated" className="w-full" style={{ imageRendering: 'pixelated' }} />
-                                <button onClick={() => setPhase('sprites')} className="pixel-button w-full mt-4 bg-green-500 text-white py-3 text-lg hover:bg-green-600">NEXT: SPRITES</button>
-                            </div>
-                        ) : (
-                            <div className="w-full h-64 flex flex-col items-center justify-center gap-4">
-                                <div style={{ imageRendering: 'pixelated', transform: 'scale(3)' }}><img src="/character-silhouette.png" alt="Silhouette" style={{ filter: 'brightness(0)', width: '80px', height: '80px', objectFit: 'contain' }} /></div>
-                                <p className="pixel-text text-gray-500" style={{ marginTop: '40px' }}>NO CHARACTER GENERATED YET</p>
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
-        </div>
-      );
-  }
-
-  if (phase === 'sprites') {
-      return (
-        <div className="w-full h-full min-h-[500px] flex flex-col items-center p-4 bg-gray-900 pixel-box overflow-y-auto">
-           <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-4">
-                 <h2 className="pixel-text text-white text-2xl mb-4">STEP 2: GENERATE SPRITES</h2>
-                 <div className="bg-white p-4 border-4 border-black">
-                    <label className="pixel-text block text-sm mb-2 font-bold">ANIMATION TYPE</label>
-                    <div className="flex gap-4 mb-4">
-                       <button onClick={() => setSpriteActionType('attack')} className={`px-4 py-2 border-2 ${spriteActionType === 'attack' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>ATTACK</button>
-                       <button onClick={() => setSpriteActionType('attack2')} className={`px-4 py-2 border-2 ${spriteActionType === 'attack2' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>ATTACK 2</button>
-                       <button onClick={() => setSpriteActionType('jump')} className={`px-4 py-2 border-2 ${spriteActionType === 'jump' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>JUMP</button>
-                       <button onClick={() => setSpriteActionType('defense')} className={`px-4 py-2 border-2 ${spriteActionType === 'defense' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>DEFENSE</button>
-                       <button onClick={() => setSpriteActionType('dead')} className={`px-4 py-2 border-2 ${spriteActionType === 'dead' ? 'border-blue-500 bg-blue-100' : 'border-gray-300'} pixel-text`}>DEAD</button>
+          );
+      } else if (phase === 'sprites') {
+          return (
+            <div className="flex flex-col gap-3 h-full overflow-y-auto pr-2">
+                 <div className="p-3 border-4 border-black bg-white">
+                    <label className="pixel-text block text-sm mb-2 font-bold text-black">ANIMATION TYPE</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                       <button onClick={() => setSpriteActionType('attack')} className={`px-3 py-1 border-2 ${spriteActionType === 'attack' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>ATTACK</button>
+                       <button onClick={() => setSpriteActionType('attack2')} className={`px-3 py-1 border-2 ${spriteActionType === 'attack2' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>ATTACK 2</button>
+                       <button onClick={() => setSpriteActionType('jump')} className={`px-3 py-1 border-2 ${spriteActionType === 'jump' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>JUMP</button>
+                       <button onClick={() => setSpriteActionType('defense')} className={`px-3 py-1 border-2 ${spriteActionType === 'defense' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>DEFENSE</button>
+                       <button onClick={() => setSpriteActionType('dead')} className={`px-3 py-1 border-2 ${spriteActionType === 'dead' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>DEAD</button>
                     </div>
-                    <div className="p-3 bg-gray-100 rounded border-2 border-gray-200 mb-4"><p className="pixel-text text-xs whitespace-pre-line">{animationInfo}</p></div>
-                    <button onClick={generateSprites} disabled={spriteLoading || !spriteReferenceImage} className="pixel-button w-full bg-indigo-600 text-white py-3 text-lg hover:bg-indigo-700 disabled:bg-gray-400">
+                    <div className="p-2 bg-gray-100 rounded border-2 border-gray-200 mb-2"><p className="pixel-text text-[10px] whitespace-pre-line text-black">{animationInfo}</p></div>
+                    <button onClick={generateSprites} disabled={spriteLoading || !spriteReferenceImage} className="pixel-button w-full bg-indigo-600 text-white py-2 text-base hover:bg-indigo-700 disabled:bg-gray-400 border-black">
                         {spriteLoading ? 'GENERATING SPRITES...' : 'GENERATE FRAMES'}
                     </button>
-                    <p className="pixel-text text-sm mt-2 text-black">{spriteStatus}</p>
+                    <p className="pixel-text text-xs mt-1 text-black">{spriteStatus}</p>
                  </div>
-              </div>
-              <div className="space-y-4 bg-white p-4 border-4 border-black h-fit">
-                  <h3 className="pixel-text font-bold">GENERATED FRAMES</h3>
-                  <div className="mb-2">
-                      <p className="text-xs mb-1 font-bold">Or Upload Your Own:</p>
-                      <div className="flex gap-2 flex-col">
-                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
-                            UPLOAD ATTACK FRAMES
+                 <div className="p-3 border-4 border-black bg-white flex-1 overflow-y-auto">
+                      <p className="text-xs mb-1 font-bold text-black">Or Upload Your Own:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="pixel-button bg-gray-200 text-black border-2 border-gray-400 text-[10px] cursor-pointer flex items-center justify-center py-1 hover:bg-gray-300">
+                            UPLOAD ATTACK
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'attack')} className="hidden" />
                         </label>
-                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
-                            UPLOAD ATTACK 2 FRAMES
+                        <label className="pixel-button bg-gray-200 text-black border-2 border-gray-400 text-[10px] cursor-pointer flex items-center justify-center py-1 hover:bg-gray-300">
+                            UPLOAD ATTACK 2
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'attack2')} className="hidden" />
                         </label>
-                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
-                            UPLOAD JUMP FRAMES
+                        <label className="pixel-button bg-gray-200 text-black border-2 border-gray-400 text-[10px] cursor-pointer flex items-center justify-center py-1 hover:bg-gray-300">
+                            UPLOAD JUMP
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'jump')} className="hidden" />
                         </label>
-                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
-                            UPLOAD DEFENSE FRAMES
+                        <label className="pixel-button bg-gray-200 text-black border-2 border-gray-400 text-[10px] cursor-pointer flex items-center justify-center py-1 hover:bg-gray-300">
+                            UPLOAD DEFENSE
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'defense')} className="hidden" />
                         </label>
-                        <label className="pixel-button bg-gray-200 text-black text-xs cursor-pointer flex items-center justify-center">
-                            UPLOAD DEAD FRAMES
+                        <label className="pixel-button bg-gray-200 text-black border-2 border-gray-400 text-[10px] cursor-pointer flex items-center justify-center py-1 hover:bg-gray-300">
+                            UPLOAD DEAD
                             <input type="file" multiple accept="image/*" onChange={(e) => handleCustomUpload(e, 'dead')} className="hidden" />
                         </label>
                       </div>
-                  </div>
+                 </div>
+            </div>
+          );
+      }
+      return null;
+  };
 
+  const renderRightPanel = () => {
+      if (phase === 'creation') {
+          return (
+            <div className="h-auto flex flex-col p-3 border-4 border-black bg-white">
+                <h3 className="pixel-label text-base mb-2 text-center text-black">PREVIEW</h3>
+                
+                {/* Preview Area - Aspect Square */}
+                <div className="w-full aspect-square bg-gray-100 border-2 border-black relative flex items-center justify-center overflow-hidden mb-3">
+                    {!generatedImage && (
+                        <div className="flex flex-col items-center justify-center gap-4 p-4 text-center">
+                            <div className="relative">
+                                <img src="/speech-bubble.png" alt="Speech bubble" style={{ imageRendering: 'pixelated', width: '100px' }} />
+                                <p className="pixel-text absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-black font-bold">Hi</p>
+                            </div>
+                            <div style={{ imageRendering: 'pixelated', transform: 'scale(2)' }}><img src="/character-silhouette.png" alt="Silhouette" style={{ filter: 'brightness(0)', width: '40px', height: '40px', objectFit: 'contain' }} /></div>
+                            <p className="pixel-text text-gray-400 text-xs mt-4">NO CHARACTER YET</p>
+                        </div>
+                    )}
+                    {generatedImage && (
+                        <img src={generatedImage} alt="Generated" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} />
+                    )}
+                </div>
+
+                {/* Buttons Moved Here */}
+                <div className="space-y-2 flex-col">
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={generatePixelCharacter} disabled={genLoading} className="pixel-button w-full text-sm py-2 border-black bg-blue-500 text-white hover:bg-blue-600">
+                            {genLoading ? '...' : 'GENERATE (AI)'}
+                        </button>
+                        <label className="pixel-button w-full text-sm bg-purple-600 hover:bg-purple-700 text-white cursor-pointer flex items-center justify-center text-center py-2 border-black">
+                            UPLOAD
+                            <input type="file" accept="image/*" onChange={handleCharacterUpload} className="hidden" />
+                        </label>
+                    </div>
+                    
+                    {genLoading && (
+                        <div>
+                            <div className="flex items-center justify-between mb-1"><span className="pixel-text text-xs text-black">Generating...</span><span className="pixel-text text-xs text-black">{genProgress}%</span></div>
+                            <div className="pixel-progress-bar h-2 border border-black"><div className="pixel-progress-bar-fill bg-green-500" style={{ width: `${genProgress}%` }}></div></div>
+                        </div>
+                    )}
+
+                    {generatedImage && (
+                        <button onClick={() => setPhase('sprites')} className="pixel-button w-full mt-auto bg-green-500 text-white py-2 text-base hover:bg-green-600 shrink-0 border-black">NEXT: SPRITES</button>
+                    )}
+                </div>
+            </div>
+          );
+      } else if (phase === 'sprites') {
+          return (
+            <div className="h-full flex flex-col p-3 border-4 border-black bg-white">
+                <h3 className="pixel-label text-base mb-2 text-center text-black">GENERATED FRAMES</h3>
+                <div className="flex-1 overflow-y-auto bg-gray-100 border-2 border-black p-2 min-h-0">
                   {attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0 ? (
                       <div className="space-y-2">
                           {attackSprites.length > 0 && (
                               <div>
-                                  <p className="text-xs font-bold">Attack ({attackSprites.length})</p>
+                                  <p className="text-xs font-bold mb-1 text-black">Attack ({attackSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {attackSprites.map((frame, i) => <img key={`atk-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                    {attackSprites.map((frame, i) => <img key={`atk-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
                           {attack2Sprites.length > 0 && (
                               <div>
-                                  <p className="text-xs font-bold">Attack 2 ({attack2Sprites.length})</p>
+                                  <p className="text-xs font-bold mb-1 mt-2 text-black">Attack 2 ({attack2Sprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {attack2Sprites.map((frame, i) => <img key={`atk2-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                    {attack2Sprites.map((frame, i) => <img key={`atk2-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
                           {jumpSprites.length > 0 && (
                               <div>
-                                  <p className="text-xs font-bold">Jump ({jumpSprites.length})</p>
+                                  <p className="text-xs font-bold mb-1 mt-2 text-black">Jump ({jumpSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {jumpSprites.map((frame, i) => <img key={`jmp-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                    {jumpSprites.map((frame, i) => <img key={`jmp-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
                           {defenseSprites.length > 0 && (
                               <div>
-                                  <p className="text-xs font-bold">Defense ({defenseSprites.length})</p>
+                                  <p className="text-xs font-bold mb-1 mt-2 text-black">Defense ({defenseSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {defenseSprites.map((frame, i) => <img key={`def-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                    {defenseSprites.map((frame, i) => <img key={`def-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
                           {deadSprites.length > 0 && (
                               <div>
-                                  <p className="text-xs font-bold">Dead ({deadSprites.length})</p>
+                                  <p className="text-xs font-bold mb-1 mt-2 text-black">Dead ({deadSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {deadSprites.map((frame, i) => <img key={`ded-${i}`} src={frame} className="w-full border border-gray-300" style={{ imageRendering: 'pixelated' }} />)}
+                                    {deadSprites.map((frame, i) => <img key={`ded-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
                                   </div>
                               </div>
                           )}
                       </div>
-                  ) : <div className="w-full h-32 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No frames yet</div>}
-                  
-                  {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
-                      <>
-                        <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 mb-2">DOWNLOAD CURRENT (ZIP)</button>
-                        <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-3 text-lg hover:bg-red-600 animate-bounce">START BATTLE!</button>
-                      </>
-                  )}
-              </div>
-           </div>
+                  ) : <div className="h-full flex items-center justify-center text-gray-400 text-xs">No frames yet</div>}
+                </div>
+                
+                {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
+                    <div className="mt-3 flex flex-col gap-2 shrink-0">
+                        <button onClick={downloadAllFrames} className="pixel-button w-full bg-green-600 text-white py-2 text-sm hover:bg-green-700 border-black">DOWNLOAD CURRENT (ZIP)</button>
+                        <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 animate-pulse border-black">START BATTLE!</button>
+                    </div>
+                )}
+            </div>
+          );
+      }
+      return null;
+  };
+
+  if (phase === 'creation' || phase === 'sprites') {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-y-auto">
+            <div className="w-full max-w-6xl border-4 border-black bg-white p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 shadow-xl relative">
+                {/* Decorative pixel corners or title could go here if needed */}
+                <div className="lg:col-span-2 min-h-0">
+                    {renderLeftPanel()}
+                </div>
+                <div className="min-h-0">
+                    {renderRightPanel()}
+                </div>
+            </div>
         </div>
       );
   }
