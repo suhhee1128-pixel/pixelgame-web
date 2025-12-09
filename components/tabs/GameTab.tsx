@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Character } from '@/lib/types';
 
 // --- Types & Interfaces ---
-type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
+type GamePhase = 'home' | 'character_select' | 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
 
   interface Entity {
     x: number;
@@ -12,6 +13,7 @@ type GamePhase = 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
     height: number;
     hp: number;
     maxHp: number;
+    atk?: number; // Added attack power
     state: 'idle' | 'move' | 'attack' | 'skill' | 'hit' | 'dead' | 'defend'; // Added defend
     facing: 1 | -1;
     frameTimer: number;
@@ -59,7 +61,9 @@ const weaponOptions = ['None', 'Baguette', 'Magic Wand', 'Candy', 'Sword'];
 
 export default function GameTab() {
   // --- States ---
-  const [phase, setPhase] = useState<GamePhase>('creation');
+  const [phase, setPhase] = useState<GamePhase>('home'); // Start at Home
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [selectedChar, setSelectedChar] = useState<Character | null>(null);
   
   // Creation State
   const [description, setDescription] = useState('');
@@ -74,6 +78,16 @@ export default function GameTab() {
   // Sprite State
   const [spriteActionType, setSpriteActionType] = useState<'attack' | 'jump' | 'dead' | 'defense' | 'attack2'>('attack');
   const [spriteReferenceImage, setSpriteReferenceImage] = useState<File | null>(null);
+  
+  // Temporary storage for all generated sprites before saving
+  const [generatedSprites, setGeneratedSprites] = useState<{
+      attack?: string[];
+      attack2?: string[];
+      jump?: string[];
+      dead?: string[];
+      defense?: string[];
+  }>({});
+
   const [attackSprites, setAttackSprites] = useState<string[]>([]);
   const [attack2Sprites, setAttack2Sprites] = useState<string[]>([]); // Added
   const [jumpSprites, setJumpSprites] = useState<string[]>([]);
@@ -87,16 +101,28 @@ export default function GameTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const playerRef = useRef<Entity>({
-    x: 100, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100,
+    x: 100, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100, atk: 1, // Added atk
     state: 'idle', facing: 1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'player', color: 'blue', hitTimer: 0
   });
-  // Add extra properties for combat logic (dashing, combo, etc.) dynamically if needed, or update interface.
-  // Using refs for dash timing
-  const lastKeyTime = useRef<{ [key: string]: number }>({ ArrowLeft: 0, ArrowRight: 0 });
   
-  const enemyRef = useRef<Entity>({
-    x: 600, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100,
-    state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'enemy', color: '#963296', hitTimer: 0
+  // Dash Timing Ref
+  const lastKeyTime = useRef<{ [key: string]: number }>({});
+  
+  // Combat State
+  const [attackStack, setAttackStack] = useState(0);
+  const [defenseCooldown, setDefenseCooldown] = useState(0); // in seconds
+  const lastDefenseTime = useRef(0);
+  const DEFENSE_COOLDOWN_TIME = 5000; // 5 seconds
+  
+  // Victory State
+  const [diceResult, setDiceResult] = useState<number | null>(null);
+  const [rewardMessage, setRewardMessage] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const enemyRef = useRef<Entity & { patternIndex: number }>({
+    x: 600, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 20, maxHp: 20, atk: 1, 
+    state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'enemy', color: '#963296', hitTimer: 0,
+    patternIndex: 0 // 0, 1 = Attack1, 2 = Attack2
   });
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const particlesRef = useRef<any[]>([]);
@@ -172,7 +198,9 @@ export default function GameTab() {
         if (phase === 'playing' && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
             const now = Date.now();
             const key = e.code;
-            if (now - lastKeyTime.current[key] < 250) {
+            const lastTime = lastKeyTime.current[key] || 0;
+            
+            if (now - lastTime < 250) {
                 playerRef.current.isDashing = true;
             }
             lastKeyTime.current[key] = now;
@@ -181,7 +209,32 @@ export default function GameTab() {
         // Trigger Actions immediately on press (Z: Attack, ArrowUp: Jump)
         if (phase === 'playing' && playerRef.current.hp > 0) {
              if (e.code === 'KeyZ') performAttack(playerRef.current, 'attack');
-             if (e.code === 'KeyX') performAttack(playerRef.current, 'attack2'); // X is now Attack 2
+             
+             // Attack 2: Requires 5 stacks (Disabled for testing)
+             if (e.code === 'KeyX') {
+                 // if (attackStack >= 5) {
+                     performAttack(playerRef.current, 'attack2');
+                     setAttackStack(0); // Reset stack
+                 // }
+             }
+
+             // Defense: Cooldown Check
+             if (e.code === 'KeyC') {
+                 const now = Date.now();
+                 if (now - lastDefenseTime.current >= DEFENSE_COOLDOWN_TIME) {
+                     // Trigger Defense manually here to ensure cooldown is set
+                     if (playerRef.current.state !== 'attack' && playerRef.current.state !== 'hit') {
+                        playerRef.current.state = 'defend';
+                        playerRef.current.vx = 0;
+                        if (playerRef.current.defenseFrames && playerRef.current.frames !== playerRef.current.defenseFrames) {
+                            playerRef.current.frames = playerRef.current.defenseFrames;
+                            playerRef.current.frameIndex = 0;
+                        }
+                        lastDefenseTime.current = now;
+                     }
+                 }
+             }
+
              if (e.code === 'ArrowUp') {
                  if (Math.abs(playerRef.current.y - GROUND_Y) < 1 && playerRef.current.state !== 'hit' && playerRef.current.state !== 'attack') {
                      playerRef.current.vy = -18; // Jump force
@@ -340,6 +393,191 @@ export default function GameTab() {
     return () => cancelAnimationFrame(requestRef.current!);
   }, [phase]);
 
+  useEffect(() => {
+    if (phase === 'character_select') {
+        fetch('/api/characters')
+            .then(res => res.json())
+            .then(data => setCharacters(data))
+            .catch(err => console.error("Failed to load characters:", err));
+    }
+  }, [phase]);
+
+  // --- Character Selection & Game Start Logic ---
+  const startGameWithCharacter = async (char: Character) => {
+      setSelectedChar(char);
+      
+      // Initialize Player
+      playerRef.current.hp = char.stats.hp;
+      playerRef.current.maxHp = char.stats.maxHp; 
+      playerRef.current.atk = char.stats.atk;
+      
+      // Helper to load frames
+      const loadFrames = async (prefix: string, count: number): Promise<(HTMLImageElement | HTMLCanvasElement)[]> => {
+          const promises = [];
+          for(let i=1; i<=count; i++) {
+              promises.push(new Promise<HTMLCanvasElement | null>((resolve) => {
+                  const img = new Image();
+                  img.src = `/images/dummy/${prefix}${i}.png`;
+                  img.onload = () => resolve(removeBackground(img));
+                  img.onerror = () => resolve(null);
+              }));
+          }
+          const results = await Promise.all(promises);
+          return results.filter((f): f is HTMLCanvasElement => f !== null);
+      };
+
+      // Special Handling for Dummy Character (Pre-loaded Sprites)
+      if (char.id === 'dummy-hero-001') {
+          console.log("Loading Dummy Character Sprites...");
+          
+          // Load Main Image (Force 0_main.png)
+          const mainImg = new Image();
+          mainImg.src = '/images/dummy/0_main.png'; // Changed to 0_main.png
+          await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
+          playerRef.current.image = removeBackground(mainImg);
+
+          // Load Animations Parallel
+          const [atk1, atk2, jump, dead, def] = await Promise.all([
+              loadFrames('attack1_', 7),
+              loadFrames('attack2_', 6), // Should match file count in directory
+              loadFrames('jump_', 6),
+              loadFrames('dead', 6), 
+              loadFrames('defense_', 6)
+          ]);
+          
+          playerRef.current.attackFrames = atk1;
+          playerRef.current.attack2Frames = atk2;
+          playerRef.current.jumpFrames = jump;
+          playerRef.current.deadFrames = dead;
+          playerRef.current.defenseFrames = def;
+          
+          // Reset to IDLE state and frames
+          playerRef.current.state = 'idle';
+          playerRef.current.frames = [playerRef.current.image as HTMLCanvasElement]; 
+          
+          setPhase('playing');
+          return;
+      } else if (char.spriteFrames && Object.keys(char.spriteFrames).length > 0) {
+          // Case 2: Custom Character WITH Sprites
+          console.log("Loading Custom Character Sprites...");
+          
+          // Load Main Image
+          const mainImg = new Image();
+          mainImg.src = char.imageUrl;
+          await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
+          playerRef.current.image = removeBackground(mainImg);
+
+          // Helper to load array of URLs
+          const loadUrlFrames = async (urls: string[]) => {
+              const promises = urls.map(url => new Promise<HTMLCanvasElement | null>((resolve) => {
+                  const img = new Image();
+                  img.src = url;
+                  img.onload = () => resolve(removeBackground(img));
+                  img.onerror = () => resolve(null);
+              }));
+              const results = await Promise.all(promises);
+              return results.filter((f): f is HTMLCanvasElement => f !== null);
+          };
+
+          // Load available frames
+          if (char.spriteFrames.idle) playerRef.current.frames = await loadUrlFrames(char.spriteFrames.idle);
+          if (char.spriteFrames.attack) playerRef.current.attackFrames = await loadUrlFrames(char.spriteFrames.attack);
+          if (char.spriteFrames.attack2) playerRef.current.attack2Frames = await loadUrlFrames(char.spriteFrames.attack2);
+          if (char.spriteFrames.jump) playerRef.current.jumpFrames = await loadUrlFrames(char.spriteFrames.jump);
+          if (char.spriteFrames.dead) playerRef.current.deadFrames = await loadUrlFrames(char.spriteFrames.dead);
+          if (char.spriteFrames.defense) playerRef.current.defenseFrames = await loadUrlFrames(char.spriteFrames.defense);
+          
+          // Fallback if no idle frames
+          if (!char.spriteFrames.idle) {
+              playerRef.current.frames = [playerRef.current.image as HTMLCanvasElement];
+          }
+          
+          playerRef.current.state = 'idle';
+          setPhase('playing');
+          return;
+      }
+      
+      // Standard Logic for User-Generated Characters (Single Frame Fallback)
+      const img = new Image();
+      img.src = char.imageUrl;
+      img.onload = () => {
+          const bgRemoved = removeBackground(img);
+          playerRef.current.image = bgRemoved;
+          
+          const singleFrame = [bgRemoved];
+          playerRef.current.state = 'idle'; // Ensure Idle
+          playerRef.current.frames = singleFrame;
+          playerRef.current.attackFrames = singleFrame;
+          playerRef.current.attack2Frames = singleFrame;
+          playerRef.current.jumpFrames = singleFrame;
+          playerRef.current.deadFrames = singleFrame;
+          playerRef.current.defenseFrames = singleFrame;
+          
+          setPhase('playing');
+      };
+      img.onerror = () => console.error("Failed to load character image");
+  };
+
+  const rollDiceAndSave = async () => {
+      if (!selectedChar) return;
+      setIsSaving(true);
+      
+      // 1. Roll Dice (1-6)
+      const roll = Math.floor(Math.random() * 6) + 1;
+      setDiceResult(roll);
+      
+      // 2. Calculate Reward
+      // 1-3: ATK +1/2/3
+      // 4-6: HP +2/4/6
+      let atkBonus = 0;
+      let hpBonus = 0;
+      let msg = "";
+      
+      if (roll <= 3) {
+          atkBonus = roll; // 1, 2, 3
+          msg = `ATK +${atkBonus}`;
+      } else {
+          hpBonus = (roll - 3) * 2; // 4->2, 5->4, 6->6
+          msg = `MAX HP +${hpBonus}`;
+      }
+      setRewardMessage(msg);
+      
+      // 3. Update Stats Locally (for immediate feedback if needed)
+      const newStats = {
+          ...selectedChar.stats,
+          maxHp: selectedChar.stats.maxHp + hpBonus,
+          atk: selectedChar.stats.atk + atkBonus,
+          hp: selectedChar.stats.maxHp + hpBonus // Heal to full + bonus
+      };
+      
+      // 4. Save to Backend
+      try {
+          const res = await fetch(`/api/characters/${selectedChar.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  stats: newStats,
+                  winCount: (selectedChar.winCount || 0) + 1 
+              })
+          });
+          
+          if (!res.ok) throw new Error("Failed to save");
+          
+          // Wait a bit to show result, then go home
+          setTimeout(() => {
+              setPhase('home');
+              setDiceResult(null);
+              setRewardMessage('');
+              setIsSaving(false);
+          }, 3000); // 3 seconds delay
+          
+      } catch (e) {
+          console.error(e);
+          setRewardMessage("Error saving progress!");
+          setIsSaving(false);
+      }
+  };
+
   // --- Creation Logic ---
   const generatePixelCharacter = async () => {
     if (!description.trim()) {
@@ -384,6 +622,95 @@ export default function GameTab() {
     }
   };
 
+  const handleSaveCharacter = async () => {
+      if (!generatedImage) return;
+      setIsSaving(true);
+      
+      try {
+          const newCharData = {
+              name: description.split(' ').slice(0, 2).join(' ') || 'New Hero', // Simple name gen
+              type: 'Custom',
+              imageUrl: generatedImage,
+              description: description,
+              stats: {
+                  hp: 20,
+                  maxHp: 20,
+                  atk: 1,
+                  speed: 10
+              }
+          };
+          
+          const res = await fetch('/api/characters', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newCharData)
+          });
+          
+          if (res.ok) {
+              setGenStatus('✅ Character saved!');
+              setTimeout(() => {
+                  setPhase('character_select'); // Go back to list
+                  setIsSaving(false);
+                  // Reset form
+                  setDescription('');
+                  setGeneratedImage(null);
+              }, 1000);
+          } else {
+              throw new Error('Failed to save');
+          }
+      } catch (e) {
+          console.error(e);
+          setGenStatus('❌ Save failed');
+          setIsSaving(false);
+      }
+  };
+
+  const handleSaveAll = async () => {
+      if (!generatedImage) return;
+      setIsSaving(true);
+      
+      try {
+          const newCharData = {
+              name: description.split(' ').slice(0, 2).join(' ') || 'New Hero',
+              type: 'Custom',
+              imageUrl: generatedImage,
+              description: description,
+              stats: {
+                  hp: 20,
+                  maxHp: 20,
+                  atk: 1,
+                  speed: 10
+              },
+              spriteFrames: generatedSprites // Save all generated frames
+          };
+          
+          const res = await fetch('/api/characters', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newCharData)
+          });
+          
+          if (res.ok) {
+              setSpriteStatus('✅ Character & Sprites saved!');
+              setTimeout(() => {
+                  setPhase('character_select');
+                  setIsSaving(false);
+                  // Reset states
+                  setDescription('');
+                  setGeneratedImage(null);
+                  setGeneratedSprites({});
+                  setAttackSprites([]); setAttack2Sprites([]); setJumpSprites([]); setDeadSprites([]); setDefenseSprites([]);
+              }, 1000);
+          } else {
+              throw new Error('Failed to save');
+          }
+      } catch (e) {
+          console.error(e);
+          setSpriteStatus('❌ Save failed');
+          setIsSaving(false);
+      }
+  };
+
   const handleCharacterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
@@ -414,11 +741,11 @@ export default function GameTab() {
         const res = await fetch('/api/generate/sprite-animation', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.success) {
-            if (spriteActionType === 'attack') setAttackSprites(data.frames);
-            else if (spriteActionType === 'attack2') setAttack2Sprites(data.frames);
-            else if (spriteActionType === 'jump') setJumpSprites(data.frames);
-            else if (spriteActionType === 'defense') setDefenseSprites(data.frames);
-            else setDeadSprites(data.frames);
+            if (spriteActionType === 'attack') { setAttackSprites(data.frames); setGeneratedSprites(prev => ({ ...prev, attack: data.frames })); }
+            else if (spriteActionType === 'attack2') { setAttack2Sprites(data.frames); setGeneratedSprites(prev => ({ ...prev, attack2: data.frames })); }
+            else if (spriteActionType === 'jump') { setJumpSprites(data.frames); setGeneratedSprites(prev => ({ ...prev, jump: data.frames })); }
+            else if (spriteActionType === 'defense') { setDefenseSprites(data.frames); setGeneratedSprites(prev => ({ ...prev, defense: data.frames })); }
+            else { setDeadSprites(data.frames); setGeneratedSprites(prev => ({ ...prev, dead: data.frames })); }
             setSpriteStatus(`✅ ${spriteActionType} animation generated successfully!`);
         } else {
             setSpriteStatus(`❌ Error: ${data.error}`);
@@ -628,8 +955,12 @@ export default function GameTab() {
         
         // Update attack box position
         if (e.attackBox) {
-            e.attackBox.x = e.x + (e.facing === 1 ? 0 : -e.attackBox.w);
-            e.attackBox.y = e.y - 100;
+            // Adjust based on facing. 
+            // If facing right (1), box is to the right. Left (-1), to the left.
+            // Center is e.x
+            const offset = e.facing === 1 ? 0 : -e.attackBox.w;
+            e.attackBox.x = e.x + offset;
+            e.attackBox.y = e.y - 100; // Height offset
         }
     } else if (e.state !== 'defend') { // Ensure movement doesn't override defend
         // Movement
@@ -713,8 +1044,9 @@ export default function GameTab() {
                     if(e.attackBox) e.attackBox.active = false;
                 } else { // Only check hitbox if frame is valid
                     // Active Hitbox on specific frames (Impact)
+                    // Widen the window to ensure hit registration
                     const mid = Math.floor(e.frames.length / 2);
-                    if ((e.frameIndex === mid || e.frameIndex === mid+1) && e.attackBox) {
+                    if (e.frameIndex >= mid - 1 && e.frameIndex <= mid + 2 && e.attackBox) {
                         e.attackBox.active = true;
                     } else if (e.attackBox) {
                         e.attackBox.active = false;
@@ -744,6 +1076,11 @@ export default function GameTab() {
             takeDamage(target, e.attackBox.damage || 10, e.facing, e.attackBox.knockback || 5);
             e.attackBox.active = false; // Hit once per attack frame
             spawnParticle(target.x, target.y - 50, 'hit');
+            
+            // Player Stack Logic
+            if (e.type === 'player' && e.attackCombo !== 2) { // Only Stack on Attack 1
+                setAttackStack(prev => Math.min(prev + 1, 5));
+            }
         }
     }
   };
@@ -813,11 +1150,16 @@ export default function GameTab() {
           // Face player
           enemy.facing = dx > 0 ? 1 : -1;
 
-          // Random Attack Chance
           // Attack more aggressively if close
           // Check Cooldown
           if ((!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.05) { 
-              performAttack(enemy, 'attack');
+              // Pattern Logic: Atk1 -> Atk1 -> Atk2
+              const pIdx = enemy.patternIndex % 3;
+              const type = pIdx === 2 ? 'attack2' : 'attack';
+              performAttack(enemy, type);
+              
+              // Increment pattern only on successful attack start
+              enemy.patternIndex++;
           }
       } else {
           // Chase Player
@@ -989,14 +1331,34 @@ export default function GameTab() {
       }
       
       // Hitbox parameters
+      const baseAtk = e.atk || 1;
+      let damage = 0;
+      let knockback = 0;
+
+      if (e.type === 'player') {
+          if (type === 'attack2') {
+              damage = baseAtk * 10; // Hero Attack 2: 10x ATK
+              knockback = 15;
+          } else {
+              damage = baseAtk * 2;  // Hero Attack 1: 2x ATK
+              knockback = 10;
+          }
+      } else {
+          // Enemy Damage Logic (Fixed for now as per design)
+          // Attack 1 = 3 dmg, Attack 2 = 10 dmg
+          // But here we just pass type. Let's simplify.
+          damage = type === 'attack2' ? 10 : 3;
+          knockback = 10;
+      }
+
       e.attackBox = { 
           x: 0, // Set in update loop
           y: 0, 
           w: 80, 
           h: 80, 
           active: false,
-          damage: type === 'attack2' ? 20 : 10, // Higher damage for Attack 2
-          knockback: type === 'attack2' ? 15 : 10
+          damage: damage, 
+          knockback: knockback
       };
   };
 
@@ -1011,6 +1373,8 @@ export default function GameTab() {
   const takeDamage = (e: Entity, amount: number, hitDir: number, knockback: number) => {
       if (e.state === 'dead') return;
       
+      console.log(`${e.type} taking damage: ${amount}. Current HP: ${e.hp}`); // Debug Log
+
       if (e.state === 'defend') {
           amount *= 0.1; // Chip damage
           knockback *= 0.5;
@@ -1025,11 +1389,12 @@ export default function GameTab() {
       }
       
       e.hp -= amount; 
-      e.vx = hitDir * knockback; // Knockback
       
+      // Ensure HP doesn't go below 0
       if (e.hp <= 0) {
           e.hp = 0;
           e.state = 'dead';
+          console.log(`${e.type} is DEAD.`);
       }
   };
 
@@ -1209,25 +1574,149 @@ export default function GameTab() {
       // HP Bar BG
       ctx.fillStyle = '#333'; ctx.fillRect(20, 40, 280, 20);
       // HP Bar Fill (Chakra Green)
-      const playerHpPct = Math.max(0, playerRef.current.hp / playerRef.current.maxHp);
+      // Safety check for maxHp to avoid Infinity
+      const pMax = playerRef.current.maxHp || 100;
+      const playerHpPct = Math.min(1, Math.max(0, playerRef.current.hp / pMax));
+      
+      // Box Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(10, 10, 320, 80); 
+      
+      // Name
+      ctx.fillStyle = '#fff'; 
+      ctx.font = 'bold 16px Galmuri11'; 
+      ctx.fillText('HERO', 20, 30);
+      
+      // HP Bar
+      const hpBarY = 40;
+      const barWidth = 280;
+      const barHeight = 15;
+      
+      // 1. Background (Empty part)
+      ctx.fillStyle = '#333'; 
+      ctx.fillRect(20, hpBarY, barWidth, barHeight);
+      
+      // 2. Fill (Health)
       ctx.fillStyle = '#00E676'; 
-      ctx.fillRect(20, 40, 280 * playerHpPct, 20);
-      ctx.strokeStyle = '#fff'; ctx.strokeRect(20, 40, 280, 20);
+      ctx.fillRect(20, hpBarY, barWidth * playerHpPct, barHeight);
+      
+      // 3. Border (White Outline)
+      ctx.strokeStyle = '#fff'; 
+      ctx.lineWidth = 2; 
+      ctx.strokeRect(20, hpBarY, barWidth, barHeight);
+
+      // Attack Stacks (Boxes)
+      for (let i = 0; i < 5; i++) {
+          const x = 20 + (i * 30);
+          const y = hpBarY + 22; 
+          ctx.fillStyle = i < attackStack ? '#FFD700' : '#444'; 
+          if (attackStack === 5) ctx.fillStyle = '#FF4500';
+          ctx.fillRect(x, y, 25, 8);
+          ctx.strokeRect(x, y, 25, 8);
+      }
+      
+      // Defense Cooldown Text
+      const now = Date.now();
+      const defDiff = now - lastDefenseTime.current;
+      const defReady = defDiff >= DEFENSE_COOLDOWN_TIME;
+      
+      ctx.font = '12px Galmuri11';
+      ctx.textAlign = 'right';
+      if (defReady) {
+          ctx.fillStyle = '#00E676';
+          ctx.fillText("DEF: READY", 320, 30); 
+      } else {
+          ctx.fillStyle = '#F44336';
+          const timeLeft = ((DEFENSE_COOLDOWN_TIME - defDiff) / 1000).toFixed(1);
+          ctx.fillText(`DEF: ${timeLeft}s`, 320, 30);
+      }
+      ctx.textAlign = 'left'; 
 
       // Enemy HUD
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(CANVAS_WIDTH - 330, 10, 320, 60);
-      ctx.fillStyle = '#fff'; ctx.fillText('RIVAL NINJA', CANVAS_WIDTH - 310, 30);
-      // HP Bar BG
-      ctx.fillStyle = '#333'; ctx.fillRect(CANVAS_WIDTH - 310, 40, 280, 20);
-      // HP Bar Fill (Red)
-      const enemyHpPct = Math.max(0, enemyRef.current.hp / enemyRef.current.maxHp);
+      // Move slightly left to ensure it's fully visible (CANVAS_WIDTH - 340)
+      const enemyHudX = CANVAS_WIDTH - 340;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(enemyHudX, 10, 320, 60);
+      
+      ctx.fillStyle = '#fff'; 
+      ctx.font = 'bold 16px Galmuri11';
+      ctx.fillText('RIVAL NINJA', enemyHudX + 20, 30);
+      
+      const eMax = enemyRef.current.maxHp || 100;
+      const enemyHpPct = Math.min(1, Math.max(0, enemyRef.current.hp / eMax));
+      
+      // Enemy HP Bar
+      const eBarX = enemyHudX + 20;
+      
+      // 1. Background
+      ctx.fillStyle = '#333'; 
+      ctx.fillRect(eBarX, 40, barWidth, barHeight);
+      
+      // 2. Fill
       ctx.fillStyle = '#F44336'; 
-      ctx.fillRect(CANVAS_WIDTH - 310, 40, 280 * enemyHpPct, 20);
-      ctx.strokeStyle = '#fff'; ctx.strokeRect(CANVAS_WIDTH - 310, 40, 280, 20);
+      ctx.fillRect(eBarX, 40, barWidth * enemyHpPct, barHeight);
+      
+      // 3. Border
+      ctx.strokeStyle = '#fff'; 
+      ctx.strokeRect(eBarX, 40, barWidth, barHeight);
   };
 
   // --- RENDER ---
+  const renderHome = () => (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-black relative">
+          <img src="/game-background.jpg" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+          <div className="z-10 text-center">
+              <h1 className="text-6xl text-white mb-8 font-bold pixel-text" style={{ textShadow: '4px 4px 0 #000' }}>PIXEL BATTLE</h1>
+              <button 
+                  onClick={() => setPhase('character_select')}
+                  className="pixel-button text-2xl bg-yellow-400 text-black px-8 py-4 border-4 border-white hover:bg-yellow-300 transform hover:scale-105 transition-transform"
+              >
+                  GAME START
+              </button>
+          </div>
+      </div>
+  );
+
+  const renderCharacterSelect = () => (
+      <div className="w-full h-full flex flex-col p-8 bg-gray-900 overflow-hidden relative">
+          <h2 className="text-3xl text-white mb-6 pixel-text text-center">SELECT YOUR HERO</h2>
+          
+          <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+              {/* New Character Card */}
+              <div 
+                  onClick={() => setPhase('creation')}
+                  className="border-4 border-dashed border-gray-500 bg-gray-800 hover:bg-gray-700 cursor-pointer p-6 flex flex-col items-center justify-center min-h-[300px] group transition-colors"
+              >
+                  <div className="text-6xl text-gray-500 group-hover:text-white mb-4">+</div>
+                  <p className="text-xl text-gray-400 group-hover:text-white pixel-text">CREATE NEW</p>
+              </div>
+
+              {/* Existing Characters */}
+              {characters.map(char => (
+                  <div 
+                      key={char.id}
+                      onClick={() => startGameWithCharacter(char)}
+                      className="border-4 border-white bg-slate-800 hover:bg-slate-700 cursor-pointer p-4 flex flex-col items-center relative group transition-transform hover:-translate-y-2"
+                  >
+                      <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center border-2 border-gray-600">
+                          <img src={char.imageUrl} alt={char.name} className="w-3/4 h-3/4 object-contain" style={{ imageRendering: 'pixelated' }} />
+                      </div>
+                      <h3 className="text-xl text-white font-bold mb-2 pixel-text">{char.name}</h3>
+                      <div className="w-full grid grid-cols-2 gap-2 text-sm text-gray-300">
+                          <div className="bg-gray-900 p-1 text-center border border-gray-600">HP {char.stats.hp}</div>
+                          <div className="bg-gray-900 p-1 text-center border border-gray-600">ATK {char.stats.atk}</div>
+                      </div>
+                      <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 font-bold">LV. {char.winCount || 1}</div>
+                  </div>
+              ))}
+          </div>
+          
+          <button onClick={() => setPhase('home')} className="absolute top-8 left-8 text-white hover:text-gray-300 pixel-text">
+              &lt; BACK
+          </button>
+      </div>
+  );
+
   const renderLeftPanel = () => {
       if (phase === 'creation') {
           return (
@@ -1371,7 +1860,14 @@ export default function GameTab() {
                     )}
 
                     {generatedImage && (
-                        <button onClick={() => setPhase('sprites')} className="pixel-button w-full mt-auto bg-green-500 text-white py-2 text-base hover:bg-green-600 shrink-0 border-black">NEXT: SPRITES</button>
+                        <div className="flex flex-col gap-2 mt-auto shrink-0">
+                             <button onClick={handleSaveCharacter} disabled={isSaving} className="pixel-button w-full bg-green-500 text-white py-2 text-base hover:bg-green-600 border-black">
+                                 {isSaving ? 'SAVING...' : 'SAVE TO COLLECTION'}
+                             </button>
+                             <button onClick={() => setPhase('sprites')} className="pixel-button w-full bg-blue-500 text-white py-2 text-base hover:bg-blue-600 border-black">
+                                 CREATE SPRITES (OPTIONAL)
+                             </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -1437,7 +1933,12 @@ export default function GameTab() {
                         )}
                     </div>
                     {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
-                        <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 animate-pulse border-black">START BATTLE!</button>
+                        <div className="flex flex-col gap-2">
+                            <button onClick={handleSaveAll} disabled={isSaving} className="pixel-button w-full bg-blue-600 text-white py-2 text-base hover:bg-blue-700 border-black animate-pulse">
+                                {isSaving ? 'SAVING...' : 'SAVE ALL & FINISH'}
+                            </button>
+                            {/* <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 border-black">START BATTLE (Test)</button> */}
+                        </div>
                     )}
                 </div>
             </div>
@@ -1445,6 +1946,9 @@ export default function GameTab() {
       }
       return null;
   };
+
+  if (phase === 'home') return renderHome();
+  if (phase === 'character_select') return renderCharacterSelect();
 
   if (phase === 'creation' || phase === 'sprites') {
       return (
@@ -1467,10 +1971,42 @@ export default function GameTab() {
         <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-black p-0 shadow-xl relative flex items-center justify-center">
             <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="w-full h-full object-contain pixelated" />
             {(phase === 'gameover' || phase === 'victory') && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-10">
-                    <div className="text-center text-white">
-                        <h2 className="text-4xl mb-4 pixel-text">{phase === 'victory' ? 'YOU WIN!' : 'GAME OVER'}</h2>
-                        <button onClick={() => setPhase('creation')} className="bg-yellow-500 text-black px-6 py-3 pixel-button border-2 border-white hover:bg-yellow-400">NEW GAME</button>
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
+                    <div className="text-center text-white p-8 border-4 border-white bg-gray-900 min-w-[300px]">
+                        <h2 className={`text-4xl mb-6 pixel-text ${phase === 'victory' ? 'text-yellow-400' : 'text-red-500'}`}>
+                            {phase === 'victory' ? 'VICTORY!' : 'GAME OVER'}
+                        </h2>
+                        
+                        {phase === 'victory' && (
+                            <div className="mb-6">
+                                {diceResult === null ? (
+                                    <div className="animate-bounce">
+                                        <p className="mb-4 text-sm text-gray-300">Roll the dice to grow stronger!</p>
+                                        <button 
+                                            onClick={rollDiceAndSave} 
+                                            disabled={isSaving}
+                                            className="bg-purple-600 text-white px-6 py-3 pixel-button border-2 border-white hover:bg-purple-500"
+                                        >
+                                            🎲 ROLL DICE
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-16 h-16 bg-white text-black flex items-center justify-center text-4xl border-4 border-black font-bold mb-2">
+                                            {diceResult}
+                                        </div>
+                                        <p className="text-2xl text-green-400 font-bold pixel-text">{rewardMessage}</p>
+                                        <p className="text-xs text-gray-400 mt-2">Saving progress...</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {phase === 'gameover' && (
+                            <button onClick={() => setPhase('home')} className="bg-white text-black px-6 py-3 pixel-button border-2 border-gray-500 hover:bg-gray-200">
+                                RETURN HOME
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

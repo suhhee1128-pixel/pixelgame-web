@@ -1,0 +1,74 @@
+[
+  {
+    "id": "dummy-hero-001",
+    "name": "Hero (Tester)",
+    "type": "Warrior",
+    "imageUrl": "/images/dummy/0_main.png",
+    "description": "테스트용 초기 캐릭터입니다.",
+    "stats": {
+      "hp": 30,
+      "maxHp": 30,
+      "atk": 10,
+      "speed": 10
+    },
+    "createdAt": "2025-12-09T04:15:04.651Z",
+    "winCount": 7,
+    "updatedAt": "2025-12-09T04:34:49.445Z"
+  },
+  {
+    "name": "피카츄 동생",
+    "type": "Custom",
+    "imageUrl": "/api/images/characters/character_1765255355450.png",
+    "description": "피카츄 동생 느낌",
+    "stats": {
+      "hp": 20,
+      "maxHp": 20,
+      "atk": 1,
+      "speed": 10
+    },
+    "id": "e65e1c7a-ddbc-430c-9940-3617fae9e778",
+    "createdAt": "2025-12-09T04:42:37.497Z",
+    "winCount": 0
+  },
+  {
+    "name": "하츄핑피카츄",
+    "type": "Custom",
+    "imageUrl": "/api/images/characters/character_1765256209719.png",
+    "description": "하츄핑피카츄",
+    "stats": {
+      "hp": 26,
+      "maxHp": 26,
+      "atk": 1,
+      "speed": 10
+    },
+    "spriteFrames": {
+      "attack": [
+        "/api/images/references/reference_1765256218132.png",
+        "/api/images/characters/attack_frame2_chargeup_1765256239965.png",
+        "/api/images/characters/attack_frame3_aim_1765256251676.png",
+        "/api/images/characters/attack_frame4_lunge_1765256263223.png",
+        "/api/images/characters/attack_frame5_impact_1765256275245.png",
+        "/api/images/characters/attack_frame6_aftershock_1765256289535.png"
+      ],
+      "attack2": [
+        "/api/images/references/reference_1765256308269.png",
+        "/api/images/characters/attack2_frame1_idle_guard_1765256317921.png",
+        "/api/images/characters/attack2_frame2_shield_up_1765256330140.png",
+        "/api/images/characters/attack2_frame3_pre_block_1765256346156.png",
+        "/api/images/characters/attack2_frame4_impact_block_1765256360288.png",
+        "/api/images/characters/attack2_frame6_guard_recovery_1765256386445.png"
+      ],
+      "defense": [
+        "/api/images/references/reference_1765256394025.png",
+        "/api/images/characters/defense_frame1_idle_guard_1765256403368.png",
+        "/api/images/characters/defense_frame3_pre_block_1765256428006.png",
+        "/api/images/characters/defense_frame4_impact_block_1765256439240.png",
+        "/api/images/characters/defense_frame6_guard_recovery_1765256463293.png"
+      ]
+    },
+    "id": "2bbec4ad-3d3e-4bd6-b214-7f620b719f78",
+    "createdAt": "2025-12-09T05:01:15.641Z",
+    "winCount": 1,
+    "updatedAt": "2025-12-09T05:01:34.625Z"
+  }
+]

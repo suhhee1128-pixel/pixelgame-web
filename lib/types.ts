@@ -116,5 +116,48 @@ export const COMPOSITION_STYLES = [
 
 export const DEFAULT_CHOICES = ["None"];
 
+// --- Game Character & Stats System Definitions ---
 
+export interface CharacterStats {
+  hp: number;
+  maxHp: number;
+  atk: number;
+  def?: number;
+  speed?: number;
+}
 
+export interface Character {
+  id: string;
+  name: string;
+  type?: string;
+  imageUrl: string;
+  description?: string;
+  
+  stats: CharacterStats;
+  
+  // Sprite Frames (Optional)
+  spriteFrames?: {
+    idle?: string[];
+    attack?: string[];
+    attack2?: string[];
+    jump?: string[];
+    dead?: string[];
+    defense?: string[];
+  };
+  
+  createdAt: string;
+  updatedAt?: string;
+  winCount?: number;
+}
+
+export interface Enemy {
+  id: string;
+  name: string;
+  imageUrl: string;
+  stats: CharacterStats;
+  pattern: ('attack1' | 'attack2' | 'wait')[];
+  attackDamage: {
+    attack1: number;
+    attack2: number;
+  };
+}
