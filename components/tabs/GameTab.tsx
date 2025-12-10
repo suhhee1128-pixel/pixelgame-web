@@ -1137,7 +1137,7 @@ export default function GameTab() {
     }
   };
 
-  const updateAI = (enemy: Entity, player: Entity) => {
+  const updateAI = (enemy: Entity & { patternIndex: number }, player: Entity) => {
       if (enemy.state === 'hit') {
           // Hit Stun recovery for Enemy
           if (enemy.hitTimer > 0) {
