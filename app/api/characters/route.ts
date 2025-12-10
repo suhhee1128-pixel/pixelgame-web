@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { getCharacters, createCharacter } from '@/lib/character-db';
 
 export async function GET() {
-  const characters = await getCharacters();
-  return NextResponse.json(characters);
+  console.log("GET /api/characters called"); // Debug Log
+  try {
+    const characters = await getCharacters();
+    console.log("Fetched characters count:", characters.length); // Debug Log
+    return NextResponse.json(characters);
+  } catch (err) {
+    console.error("GET /api/characters error:", err); // Debug Log
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {

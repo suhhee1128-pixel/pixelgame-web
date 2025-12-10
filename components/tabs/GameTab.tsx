@@ -33,6 +33,8 @@ type GamePhase = 'home' | 'character_select' | 'creation' | 'sprites' | 'playing
     isDashing?: boolean; // Added
     attackCombo?: number; // Added
     attackCooldown?: number; // Added for AI
+    hasHit?: boolean; // Added for single hit check
+    defenseTimer?: number; // Added
   }
 
 const CANVAS_WIDTH = 800;
@@ -101,7 +103,10 @@ export default function GameTab() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const playerRef = useRef<Entity>({
-    x: 100, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 100, maxHp: 100, atk: 1, // Added atk
+    x: 100, y: GROUND_Y, vx: 0, vy: 0, 
+    width: 80, // FIX: Reduced to 2/3 size (120 * 2/3 = 80)
+    height: 133, // FIX: Reduced to 2/3 size (200 * 2/3 = 133.3)
+    hp: 100, maxHp: 100, atk: 1, 
     state: 'idle', facing: 1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'player', color: 'blue', hitTimer: 0
   });
   
@@ -109,7 +114,7 @@ export default function GameTab() {
   const lastKeyTime = useRef<{ [key: string]: number }>({});
   
   // Combat State
-  const [attackStack, setAttackStack] = useState(0);
+  const attackStackRef = useRef(0);
   const [defenseCooldown, setDefenseCooldown] = useState(0); // in seconds
   const lastDefenseTime = useRef(0);
   const DEFENSE_COOLDOWN_TIME = 5000; // 5 seconds
@@ -120,7 +125,10 @@ export default function GameTab() {
   const [isSaving, setIsSaving] = useState(false);
 
   const enemyRef = useRef<Entity & { patternIndex: number }>({
-    x: 600, y: GROUND_Y, vx: 0, vy: 0, width: 120, height: 200, hp: 20, maxHp: 20, atk: 1, 
+    x: 600, y: GROUND_Y, vx: 0, vy: 0, 
+    width: 247, // FIX: Reduced to 2/3 size (370 * 2/3 = 246.6)
+    height: 133, // FIX: Reduced to 2/3 size (200 * 2/3 = 133.3)
+    hp: 100, maxHp: 100, atk: 1, 
     state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'enemy', color: '#963296', hitTimer: 0,
     patternIndex: 0 // 0, 1 = Attack1, 2 = Attack2
   });
@@ -134,13 +142,23 @@ export default function GameTab() {
   useEffect(() => {
       const loadEnemySprites = async () => {
           console.log("Attempting to load enemy sprites...");
-          const types = ['idle', 'attack', 'attack2', 'jump', 'defense', 'dead'];
+          
+          // Define frame counts for each animation type
+          const spriteConfig: { [key: string]: number } = {
+              'idle': 1,
+              'attack': 3, // Changed from 5 to 3
+              'attack2': 6,
+              'jump': 4,
+              'defense': 4,
+              'dead': 4
+          };
+          
           const loadedFrames: {[key: string]: (HTMLImageElement | HTMLCanvasElement)[]} = {};
           
-          // Load up to 8 frames for each type
-          for (const type of types) {
+          // Load frames based on config
+          for (const [type, count] of Object.entries(spriteConfig)) {
               const frames: (HTMLImageElement | HTMLCanvasElement)[] = [];
-              for (let i = 1; i <= 8; i++) {
+              for (let i = 1; i <= count; i++) {
                   const img = new Image();
                   // Use timestamp to bust cache if needed, but try standard first
                   img.src = `/images/enemy/${type}/${i}.png`; 
@@ -210,12 +228,12 @@ export default function GameTab() {
         if (phase === 'playing' && playerRef.current.hp > 0) {
              if (e.code === 'KeyZ') performAttack(playerRef.current, 'attack');
              
-             // Attack 2: Requires 5 stacks (Disabled for testing)
+             // Attack 2: Requires 5 stacks
              if (e.code === 'KeyX') {
-                 // if (attackStack >= 5) {
+                 if (attackStackRef.current >= 5) { // FIX: Enabled 5 Stack Requirement
                      performAttack(playerRef.current, 'attack2');
-                     setAttackStack(0); // Reset stack
-                 // }
+                     attackStackRef.current = 0; // Reset stack
+                 }
              }
 
              // Defense: Cooldown Check
@@ -223,14 +241,15 @@ export default function GameTab() {
                  const now = Date.now();
                  if (now - lastDefenseTime.current >= DEFENSE_COOLDOWN_TIME) {
                      // Trigger Defense manually here to ensure cooldown is set
-                     if (playerRef.current.state !== 'attack' && playerRef.current.state !== 'hit') {
+                     if (playerRef.current.state !== 'attack' && playerRef.current.state !== 'hit' && playerRef.current.state !== 'defend') {
                         playerRef.current.state = 'defend';
                         playerRef.current.vx = 0;
+                        playerRef.current.defenseTimer = 180; // 3 Seconds (60fps * 3)
                         if (playerRef.current.defenseFrames && playerRef.current.frames !== playerRef.current.defenseFrames) {
                             playerRef.current.frames = playerRef.current.defenseFrames;
                             playerRef.current.frameIndex = 0;
                         }
-                        lastDefenseTime.current = now;
+                        // lastDefenseTime.current = now; // MOVED: Cooldown starts after defense ends
                      }
                  }
              }
@@ -427,7 +446,7 @@ export default function GameTab() {
       };
 
       // Special Handling for Dummy Character (Pre-loaded Sprites)
-      if (char.id === 'dummy-hero-001') {
+      if (char.id === '00000000-0000-0000-0000-000000000001') {
           console.log("Loading Dummy Character Sprites...");
           
           // Load Main Image (Force 0_main.png)
@@ -800,9 +819,13 @@ export default function GameTab() {
 
   // --- Game Engine ---
   const startGameLoop = () => {
-    playerRef.current.hp = 100;
+    // FIX: Reset HP to Character Stats or Default 20
+    playerRef.current.hp = selectedChar ? selectedChar.stats.maxHp : 20; 
+    playerRef.current.maxHp = selectedChar ? selectedChar.stats.maxHp : 20;
     playerRef.current.x = 100;
-    enemyRef.current.hp = 100;
+    
+    enemyRef.current.hp = 200; // FIX: Enemy HP 200 (For Stack Testing)
+    enemyRef.current.maxHp = 200;
     enemyRef.current.x = 600;
     // Reset enemy state correctly for new game
     enemyRef.current.state = 'idle';
@@ -846,20 +869,34 @@ export default function GameTab() {
 
   const checkBodyCollision = (mover: Entity, target: Entity, nextX: number) => {
       // Body Hitbox (Make it slightly narrower than full width for better feel)
-      const mW = mover.width * 0.4; 
-      const tW = target.width * 0.4;
+      // FIX: Normalized Logic - No Offsets. Center is Center.
       
-      const mLeft = nextX - mW/2;
-      const mRight = nextX + mW/2;
-      const tLeft = target.x - tW/2;
-      const tRight = target.x + tW/2;
+      const mW = mover.type === 'enemy' ? mover.width * 0.3 : mover.width * 0.4; 
+      const tW = target.type === 'enemy' ? target.width * 0.3 : target.width * 0.4;
+      
+      // FIX: Dynamic Offset based on Facing Direction
+      // Logic adjusted for smaller Enemy size (2/3 scale)
+      // Original offset was 80. New offset should be roughly 2/3 of 80 => ~53. Let's try 55.
+      let mX = nextX;
+      if (mover.type === 'enemy') {
+          mX += (mover.facing === -1 ? 55 : -55); 
+      }
+      
+      let tX = target.x;
+      if (target.type === 'enemy') {
+          tX += (target.facing === -1 ? 55 : -55);
+      }
+
+      const mLeft = mX - mW/2;
+      const mRight = mX + mW/2;
+      const tLeft = tX - tW/2;
+      const tRight = tX + tW/2;
       
       const xOverlap = mLeft < tRight && mRight > tLeft;
       
-      // Y Overlap (Allow jumping over)
-      // Height is typically 200. 
+      // Y Overlap
       const mBot = mover.y;
-      const mTop = mover.y - mover.height * 0.8; // Approximate hitbox height
+      const mTop = mover.y - mover.height * 0.8; 
       const tBot = target.y;
       const tTop = target.y - target.height * 0.8;
       
@@ -916,19 +953,17 @@ export default function GameTab() {
         return;
     }
 
-    // Defense
-    if (e.type === 'player' && keys['KeyC']) {
-        if (e.state !== 'attack') {
-            e.state = 'defend';
-            e.vx = 0;
-            if (e.defenseFrames && e.frames !== e.defenseFrames) {
-                e.frames = e.defenseFrames;
-                e.frameIndex = 0;
-            }
+    // Defense Logic (Fixed Duration)
+    if (e.state === 'defend') {
+        e.vx = 0;
+        if (e.type === 'player' && e.defenseTimer !== undefined) {
+             e.defenseTimer--;
+             if (e.defenseTimer <= 0) {
+                 e.state = 'idle';
+                 e.frames = undefined;
+                 lastDefenseTime.current = Date.now(); // Cooldown starts NOW
+             }
         }
-    } else if (e.state === 'defend') {
-        e.state = 'idle';
-        e.frames = undefined; // Reset
     }
 
     // Attack Logic (State Machine handled in performAttack/Animation loop)
@@ -953,14 +988,29 @@ export default function GameTab() {
              // ... standard update logic continues below in Animation & Hitbox section
         }
         
-        // Update attack box position
+        // Update attack box position (FIX: Sync every frame)
         if (e.attackBox) {
             // Adjust based on facing. 
             // If facing right (1), box is to the right. Left (-1), to the left.
             // Center is e.x
-            const offset = e.facing === 1 ? 0 : -e.attackBox.w;
-            e.attackBox.x = e.x + offset;
-            e.attackBox.y = e.y - 100; // Height offset
+            // e.width is typically 120. e.x is CENTER.
+            // Box should start from center and extend outward.
+            
+            // FIX: Height adjustment. e.y is GROUND (400). 
+            // Box should be around chest/head level.
+            // -100 was too low/high? Let's try -120 to -40 range.
+            
+            const reach = 80; // Distance from center
+            
+            if (e.facing === 1) {
+                // Right
+                e.attackBox.x = e.x; 
+            } else {
+                // Left
+                e.attackBox.x = e.x - e.attackBox.w;
+            }
+            
+            e.attackBox.y = e.y - 80; // FIX: Lowered significantly (was -140). Now closer to ground/center.
         }
     } else if (e.state !== 'defend') { // Ensure movement doesn't override defend
         // Movement
@@ -1041,6 +1091,7 @@ export default function GameTab() {
                 if (e.frameIndex >= e.frames.length) { 
                     e.frameIndex = 0; e.state = 'idle'; 
                     e.frames = undefined;
+                    e.attackCombo = 0; // FIX: Reset combo type after attack ends
                     if(e.attackBox) e.attackBox.active = false;
                 } else { // Only check hitbox if frame is valid
                     // Active Hitbox on specific frames (Impact)
@@ -1070,16 +1121,17 @@ export default function GameTab() {
         }
     }
 
-    if (e.attackBox && e.attackBox.active) {
+    if (e.attackBox && e.attackBox.active && !e.hasHit) { // FIX: Check hasHit to prevent multi-hit
         const target = e.type === 'player' ? enemyRef.current : playerRef.current;
         if (checkCollision(e.attackBox, target)) {
             takeDamage(target, e.attackBox.damage || 10, e.facing, e.attackBox.knockback || 5);
-            e.attackBox.active = false; // Hit once per attack frame
+            e.hasHit = true; // FIX: Mark as hit so it doesn't hit again in this animation
+            // e.attackBox.active = false; // REMOVED: Don't disable box, just ignore damage with hasHit
             spawnParticle(target.x, target.y - 50, 'hit');
             
             // Player Stack Logic
             if (e.type === 'player' && e.attackCombo !== 2) { // Only Stack on Attack 1
-                setAttackStack(prev => Math.min(prev + 1, 5));
+                attackStackRef.current = Math.min(attackStackRef.current + 1, 5);
             }
         }
     }
@@ -1152,11 +1204,11 @@ export default function GameTab() {
 
           // Attack more aggressively if close
           // Check Cooldown
-          if ((!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.05) { 
-              // Pattern Logic: Atk1 -> Atk1 -> Atk2
-              const pIdx = enemy.patternIndex % 3;
-              const type = pIdx === 2 ? 'attack2' : 'attack';
-              performAttack(enemy, type);
+          if ((!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.01) { 
+              // Pattern Logic: REMOVED Attack 2 for now
+              // const pIdx = enemy.patternIndex % 3;
+              // const type = pIdx === 2 ? 'attack2' : 'attack';
+              performAttack(enemy, 'attack'); // Always Attack 1
               
               // Increment pattern only on successful attack start
               enemy.patternIndex++;
@@ -1237,10 +1289,11 @@ export default function GameTab() {
                  } else {
                      // Active Hitbox logic for Sprite
                      // Active for a longer window in the middle
-                     const mid = Math.floor(enemy.frames.length / 2);
-                     if (enemy.frameIndex >= mid - 1 && enemy.frameIndex <= mid + 1 && enemy.attackBox) {
-                         enemy.attackBox.active = true;
-                     }
+                     // FIX: Enemy Attack is only 3 frames now.
+                     // Active on ALL frames or specifically frame 1 (index 1) which is impact
+                     // Let's make it active on Frame 1 and 2 (indices 1, 2) to ensure hit
+                     
+                     if (enemy.attackBox) enemy.attackBox.active = true;
                  }
              } else {
                  // Idle/Move Loop
@@ -1290,14 +1343,17 @@ export default function GameTab() {
           }
       }
 
-      // Update Attack Box Position
-      if (enemy.state === 'attack' && enemy.attackBox) {
+      // Update Attack Box Position (FIX: Sync every frame for Enemy too)
+      if (enemy.attackBox) {
           // Adjust Hitbox based on facing (Left/Right)
-          // Since sprites are centered, we offset from center
-          // Width 80, height 80
           const reach = 60;
-          enemy.attackBox.x = enemy.x + (enemy.facing === 1 ? reach/2 : -reach - enemy.attackBox.w + 20);
-          enemy.attackBox.y = enemy.y - 80; // Lower it a bit (was -100) to hit body
+          if (enemy.facing === 1) {
+              enemy.attackBox.x = enemy.x;
+          } else {
+              enemy.attackBox.x = enemy.x - enemy.attackBox.w;
+          }
+          
+          enemy.attackBox.y = enemy.y - 100; // FIX: Lowered significantly (was -140). Now closer to ground/center.
       }
 
       // Enemy Hitbox Collision Check vs Player
@@ -1314,6 +1370,7 @@ export default function GameTab() {
       if (e.state === 'attack') return; // Already attacking
       e.state = 'attack'; e.vx = 0;
       e.frameIndex = 0; // Start from frame 0
+      e.hasHit = false; // FIX: Reset hit flag for new attack
       
       // Attack 2 Logic
       if (type === 'attack2') {
@@ -1337,10 +1394,10 @@ export default function GameTab() {
 
       if (e.type === 'player') {
           if (type === 'attack2') {
-              damage = baseAtk * 10; // Hero Attack 2: 10x ATK
+              damage = 10; // FIX: Fixed Damage 10 (Skill)
               knockback = 15;
           } else {
-              damage = baseAtk * 2;  // Hero Attack 1: 2x ATK
+              damage = 2;  // FIX: Fixed Damage 2 (Normal)
               knockback = 10;
           }
       } else {
@@ -1363,11 +1420,30 @@ export default function GameTab() {
   };
 
   const checkCollision = (box: {x:number, y:number, w:number, h:number}, target: Entity) => {
+      // FIX: Ignore collision if target is already dead
+      if (target.state === 'dead') return false;
+
       // 2D Box Collision
-      return (box.x < target.x + target.width/2 && 
-              box.x + box.w > target.x - target.width/2 && 
-              box.y < target.y && 
-              box.y + box.h > target.y - target.height);
+      // FIX: Improve Collision Logic
+      // Calculate target bounds cleanly based on center x/y and dimensions
+      
+      const tW = target.type === 'enemy' ? target.width * 0.3 : target.width * 0.4;
+      let tX = target.x;
+      
+      // FIX: Dynamic Offset here too (Reduced to 55)
+      if (target.type === 'enemy') {
+          tX += (target.facing === -1 ? 55 : -55);
+      }
+      
+      const tLeft = tX - tW/2;
+      const tRight = tX + tW/2;
+      const tBot = target.y;
+      const tTop = target.y - target.height * 0.8;
+
+      return (box.x < tRight && 
+              box.x + box.w > tLeft && 
+              box.y < tBot && 
+              box.y + box.h > tTop);
   };
 
   const takeDamage = (e: Entity, amount: number, hitDir: number, knockback: number) => {
@@ -1381,7 +1457,7 @@ export default function GameTab() {
           spawnParticle(e.x, e.y - 50, 'block'); // Block effect
       } else {
           e.state = 'hit'; 
-          e.hitTimer = 15; 
+          e.hitTimer = 8; // FIX: Reduced Hit Stun/Invincibility from 15 to 8 frames (~0.13s)
           // Blood effect
           spawnParticle(e.x, e.y - 50, 'blood');
           // Pop up
@@ -1554,6 +1630,39 @@ export default function GameTab() {
               // The original code tried to draw over the rect.
               // ctx.fillRect(e.x - e.width/2, spriteY - e.height, e.width, e.height);
           }
+
+          // --- DEBUG: HITBOX VISUALIZATION ---
+          // 1. Body Hitbox (Blue) - Matches checkBodyCollision logic
+          // Width * 0.4, Height * 0.8 (approx)
+          // FIX: Use same logic as collision check for visualization (NO OFFSETS)
+          const bodyW = e.type === 'enemy' ? e.width * 0.3 : e.width * 0.4;
+          const bodyH = e.height * 0.8;
+          
+          let visX = e.x; // Standard Center
+          // FIX: Dynamic Visual Offset (Reduced to 55)
+          if (e.type === 'enemy') {
+              visX += (e.facing === -1 ? 55 : -55);
+          }
+          
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = e.type === 'enemy' ? '#FFFF00' : '#00FFFF'; // Yellow for Enemy, Cyan for Player
+          ctx.strokeRect(visX - bodyW/2, spriteY - bodyH, bodyW, bodyH);
+
+          // 2. Attack Hitbox (Red)
+          if (e.attackBox) {
+              if (e.attackBox.active) {
+                  ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Active: Semi-transparent Red Fill
+                  ctx.strokeStyle = '#FF0000'; // Active: Red Border
+              } else {
+                  // Enemy Attack Box = Purple, Player = White/Gray
+                  ctx.fillStyle = e.type === 'enemy' ? 'rgba(128, 0, 128, 0.2)' : 'rgba(255, 255, 255, 0.2)'; 
+                  ctx.strokeStyle = e.type === 'enemy' ? 'rgba(128, 0, 128, 0.5)' : 'rgba(255, 255, 255, 0.5)'; 
+              }
+              
+              ctx.fillRect(e.attackBox.x, e.attackBox.y, e.attackBox.w, e.attackBox.h);
+              ctx.strokeRect(e.attackBox.x, e.attackBox.y, e.attackBox.w, e.attackBox.h);
+          }
+          // --- END DEBUG ---
       });
       
       // Effects
@@ -1606,13 +1715,50 @@ export default function GameTab() {
       ctx.strokeRect(20, hpBarY, barWidth, barHeight);
 
       // Attack Stacks (Boxes)
+      // FIX: Improved UI for Stack System
+      const stackY = hpBarY + 25;
+      
+      // Draw Label
+      ctx.fillStyle = '#bbb';
+      ctx.font = '10px Galmuri11';
+      ctx.fillText('COMBO', 20, stackY + 8);
+      
       for (let i = 0; i < 5; i++) {
-          const x = 20 + (i * 30);
-          const y = hpBarY + 22; 
-          ctx.fillStyle = i < attackStack ? '#FFD700' : '#444'; 
-          if (attackStack === 5) ctx.fillStyle = '#FF4500';
-          ctx.fillRect(x, y, 25, 8);
-          ctx.strokeRect(x, y, 25, 8);
+          const x = 60 + (i * 25); // Shifted right after label
+          const y = stackY; 
+          
+          // Background Box
+          ctx.fillStyle = '#222';
+          ctx.fillRect(x, y, 20, 10);
+          ctx.strokeStyle = '#555';
+          ctx.strokeRect(x, y, 20, 10);
+          
+          // Filled Box
+          if (i < attackStackRef.current) {
+              // Color gradient: Yellow -> Orange -> Red
+              if (attackStackRef.current === 5) ctx.fillStyle = '#FF0000'; // Full Charge: Red
+              else ctx.fillStyle = '#FFD700'; // Charging: Gold
+              
+              ctx.fillRect(x, y, 20, 10);
+              
+              // Glow effect for full stack
+              if (attackStackRef.current === 5) {
+                  ctx.strokeStyle = '#FFF';
+                  ctx.lineWidth = 2;
+                  ctx.strokeRect(x, y, 20, 10);
+                  ctx.lineWidth = 1; // Reset
+              }
+          }
+      }
+      
+      // Ultimate Ready Text
+      if (attackStackRef.current >= 5) {
+          // Blink effect
+          if (Math.floor(Date.now() / 200) % 2 === 0) {
+              ctx.fillStyle = '#FF4500';
+              ctx.font = 'bold 12px Galmuri11';
+              ctx.fillText("ULTIMATE READY! (PRESS X)", 20, stackY + 25); 
+          }
       }
       
       // Defense Cooldown Text
@@ -1622,7 +1768,11 @@ export default function GameTab() {
       
       ctx.font = '12px Galmuri11';
       ctx.textAlign = 'right';
-      if (defReady) {
+      
+      if (playerRef.current.state === 'defend') {
+          ctx.fillStyle = '#00E676';
+          ctx.fillText(`ACTIVE: ${((playerRef.current.defenseTimer || 0)/60).toFixed(1)}s`, 320, 30); 
+      } else if (defReady) {
           ctx.fillStyle = '#00E676';
           ctx.fillText("DEF: READY", 320, 30); 
       } else {

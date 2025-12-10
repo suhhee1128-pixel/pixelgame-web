@@ -38,7 +38,7 @@
     "stats": {
       "hp": 26,
       "maxHp": 26,
-      "atk": 1,
+      "atk": 4,
       "speed": 10
     },
     "spriteFrames": {
@@ -68,7 +68,7 @@
     },
     "id": "2bbec4ad-3d3e-4bd6-b214-7f620b719f78",
     "createdAt": "2025-12-09T05:01:15.641Z",
-    "winCount": 1,
-    "updatedAt": "2025-12-09T05:01:34.625Z"
+    "winCount": 2,
+    "updatedAt": "2025-12-09T05:09:24.460Z"
   }
 ]
