@@ -955,11 +955,11 @@ export default function GameTab() {
 
     // Defense Logic (Fixed Duration)
     if (e.state === 'defend') {
-        e.vx = 0;
+            e.vx = 0;
         if (e.type === 'player' && e.defenseTimer !== undefined) {
              e.defenseTimer--;
              if (e.defenseTimer <= 0) {
-                 e.state = 'idle';
+        e.state = 'idle';
                  e.frames = undefined;
                  lastDefenseTime.current = Date.now(); // Cooldown starts NOW
              }

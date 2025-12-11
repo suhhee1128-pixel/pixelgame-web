@@ -912,7 +912,7 @@ CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions,
       prompt += "- Clear pixelated edges, visible individual pixels\n";
       prompt += "- Limited color palette (8-16 colors recommended)\n";
       prompt += "- Clean pixel-perfect outlines\n";
-      prompt += "- Front-facing view\n";
+      prompt += "- Character must face toward the right side (right-facing orientation, 3/4 view, not front-facing)\n";
       prompt += "- Single character, centered composition\n";
       prompt += "- White background (will be made transparent)\n";
       prompt += "- Game sprite aesthetic (like 8-bit, 16-bit, or 32-bit era)\n";

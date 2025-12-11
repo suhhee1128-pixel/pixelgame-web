@@ -77,6 +77,7 @@ export function buildCharacterPrompt(character_description: string, style_prefer
     - Entire character's body shows in the image
     - Clear and recognizable at small sizes
     - Well-defined silhouette
+    - Character must face toward the right side (right-facing orientation, 3/4 view, not front-facing)
     - no background
     - no other objects
     - Consistent art style
