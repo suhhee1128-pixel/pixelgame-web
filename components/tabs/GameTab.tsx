@@ -63,7 +63,7 @@ const weaponOptions = ['None', 'Baguette', 'Magic Wand', 'Candy', 'Sword'];
 
 export default function GameTab() {
   // --- States ---
-  const [phase, setPhase] = useState<GamePhase>('home'); // Start at Home
+  const [phase, setPhase] = useState<GamePhase>('character_select'); // Start at Character Select
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedChar, setSelectedChar] = useState<Character | null>(null);
   
@@ -582,9 +582,9 @@ export default function GameTab() {
           
           if (!res.ok) throw new Error("Failed to save");
           
-          // Wait a bit to show result, then go home
+          // Wait a bit to show result, then go to character select
           setTimeout(() => {
-              setPhase('home');
+              setPhase('character_select');
               setDiceResult(null);
               setRewardMessage('');
               setIsSaving(false);
@@ -1812,21 +1812,6 @@ export default function GameTab() {
   };
 
   // --- RENDER ---
-  const renderHome = () => (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-black relative">
-          <img src="/game-background.jpg" className="absolute inset-0 w-full h-full object-cover opacity-50" />
-          <div className="z-10 text-center">
-              <h1 className="text-6xl text-white mb-8 font-bold pixel-text" style={{ textShadow: '4px 4px 0 #000' }}>PIXEL BATTLE</h1>
-              <button 
-                  onClick={() => setPhase('character_select')}
-                  className="pixel-button text-2xl bg-yellow-400 text-black px-8 py-4 border-4 border-white hover:bg-yellow-300 transform hover:scale-105 transition-transform"
-              >
-                  GAME START
-              </button>
-          </div>
-      </div>
-  );
-
   const renderCharacterSelect = () => (
       <div className="w-full h-full flex flex-col p-8 bg-gray-900 overflow-hidden relative">
           <h2 className="text-3xl text-white mb-6 pixel-text text-center">SELECT YOUR HERO</h2>
@@ -1861,7 +1846,7 @@ export default function GameTab() {
               ))}
           </div>
           
-          <button onClick={() => setPhase('home')} className="absolute top-8 left-8 text-white hover:text-gray-300 pixel-text">
+          <button onClick={() => window.location.href = '/'} className="absolute top-8 left-8 text-white hover:text-gray-300 pixel-text">
               &lt; BACK
           </button>
       </div>
@@ -2097,7 +2082,6 @@ export default function GameTab() {
       return null;
   };
 
-  if (phase === 'home') return renderHome();
   if (phase === 'character_select') return renderCharacterSelect();
 
   if (phase === 'creation' || phase === 'sprites') {
@@ -2153,7 +2137,7 @@ export default function GameTab() {
                         )}
 
                         {phase === 'gameover' && (
-                            <button onClick={() => setPhase('home')} className="bg-white text-black px-6 py-3 pixel-button border-2 border-gray-500 hover:bg-gray-200">
+                            <button onClick={() => window.location.href = '/'} className="bg-white text-black px-6 py-3 pixel-button border-2 border-gray-500 hover:bg-gray-200">
                                 RETURN HOME
                             </button>
                         )}
