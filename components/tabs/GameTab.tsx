@@ -1918,9 +1918,15 @@ export default function GameTab() {
           }
       }
 
-      // Enemy Hitbox Collision Check vs Player
-      if (enemy.attackBox && enemy.attackBox.active) {
-          const hit = checkCollision(enemy.attackBox, player);
+    // Enemy Hitbox Collision Check vs Player
+    if (enemy.attackBox && enemy.attackBox.active) {
+        const hit = checkCollision(enemy.attackBox, player);
+        console.log(
+            '[ENEMY HIT CHECK]',
+            'attackActive:', enemy.attackBox.active,
+            'playerHitTimer:', player.hitTimer,
+            'enemyHasHit:', enemy.hasHit
+        );
           
           // Debug: Always log collision check when attack is active
           if (enemy.state === 'attack') {
@@ -1952,7 +1958,8 @@ export default function GameTab() {
   };
 
   const performAttack = (e: Entity, type: string) => {
-      if (e.state === 'attack') return; // Already attacking
+      // 🔒 경직/사망/공격 중에는 새 공격 불가 (경직 중 입력 무시 효과)
+      if (e.state === 'attack' || e.state === 'hit' || e.state === 'dead') return;
       e.state = 'attack'; e.vx = 0;
       e.frameIndex = 0; // Start from frame 0
       e.hasHit = false; // FIX: Reset hit flag for new attack
