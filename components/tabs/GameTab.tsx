@@ -155,7 +155,7 @@ export default function GameTab() {
     x: 600, y: GROUND_Y, vx: 0, vy: 0, 
     width: 247, // FIX: Reduced to 2/3 size (370 * 2/3 = 246.6)
     height: 133, // FIX: Reduced to 2/3 size (200 * 2/3 = 133.3)
-    hp: 100, maxHp: 100, atk: 1, 
+    hp: 30, maxHp: 30, atk: 1, 
     state: 'idle', facing: -1, frameTimer: 0, frameIndex: 0, animFrame: 0, type: 'enemy', color: '#963296', hitTimer: 0,
     patternIndex: 0 // 0, 1 = Attack1, 2 = Attack2
   });
@@ -1356,8 +1356,8 @@ export default function GameTab() {
     playerRef.current.maxHp = selectedChar ? selectedChar.stats.maxHp : 20;
     playerRef.current.x = 100;
     
-    enemyRef.current.hp = 200; // FIX: Enemy HP 200 (For Stack Testing)
-    enemyRef.current.maxHp = 200;
+    enemyRef.current.hp = 30; // 적 체력 30으로 고정
+    enemyRef.current.maxHp = 30;
     enemyRef.current.x = 600;
     // 🔥 enemy.y를 GROUND_Y로 강제 (pivot = 발 = groundY)
     enemyRef.current.y = GROUND_Y;
@@ -2328,16 +2328,21 @@ export default function GameTab() {
 
           // --- DEBUG: HITBOX VISUALIZATION ---
           // STEP 2: Body Hitbox based on PIVOT (e.x, e.y = pivot)
-          // ❌ NO magic numbers, NO facing offsets, NO width/height ratios
-          // ✅ Pivot-based only
+          // ✅ Pivot-based, 스프라이트 크기 기반
           
-          // Body box dimensions (adjustable, but pivot-based)
-          const bodyW = e.type === 'enemy' ? 55 : 80;  // Fixed width, not ratio
-          const bodyH = e.type === 'enemy' ? 95 : 180; // Fixed height, not ratio
+          // 플레이어의 실제 렌더링 크기 계산
+          const spriteW = e.type === 'player' ? e.width * PLAYER_SCALE : e.width;
+          const spriteH = e.type === 'player' ? e.height * PLAYER_SCALE : e.height;
           
-          // Body box position: pivot (e.x, e.y) centered horizontally, extends upward
+          // Body box dimensions: 스프라이트 크기의 비율로 계산
+          // 플레이어: 가로 60%, 세로 75% (맞아도 억울하지 않은 영역만)
+          // 적: 기존보다 20% 넓게 (55 * 1.2 = 66)
+          const bodyW = e.type === 'enemy' ? 66 : spriteW * 0.6;  // 적: 66 (기존 55의 120%), 플레이어: 스프라이트 폭의 60%
+          const bodyH = e.type === 'enemy' ? 95 : spriteH * 0.75; // 적: 기존 값 유지, 플레이어: 스프라이트 높이의 75%
+          
+          // Body box position: pivot (e.x, e.y) centered horizontally, extends upward only
           const bodyBoxX = e.x - bodyW / 2;  // Pivot centered
-          const bodyBoxY = e.y - bodyH;      // Pivot at bottom, box extends upward
+          const bodyBoxY = e.y - bodyH;      // Pivot at bottom, box extends upward (발 아래 금지)
           
           ctx.lineWidth = 2;
           ctx.strokeStyle = e.type === 'enemy' ? '#FFFF00' : '#00FFFF'; // Yellow for Enemy, Cyan for Player
@@ -3230,33 +3235,36 @@ export default function GameTab() {
                 </div>
             )}
             {phase === 'victory' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
-                    <div className="text-center text-white p-8 border-4 border-white bg-gray-900 min-w-[300px]">
-                        <h2 className={`text-4xl mb-6 pixel-text text-yellow-400`}>
-                            VICTORY!
-                        </h2>
-                        
-                        <div className="mb-6">
-                            {diceResult === null ? (
-                                <div className="animate-bounce">
-                                    <p className="mb-4 text-sm text-gray-300">Roll the dice to grow stronger!</p>
-                                    <button 
-                                        onClick={rollDiceAndSave} 
-                                        disabled={isSaving}
-                                        className="bg-purple-600 text-white px-6 py-3 pixel-button border-2 border-white hover:bg-purple-500"
-                                    >
-                                        🎲 ROLL DICE
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="w-16 h-16 bg-white text-black flex items-center justify-center text-4xl border-4 border-black font-bold mb-2">
-                                        {diceResult}
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-end" style={{
+                    backgroundImage: 'url(/victory.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                }}>
+                    <div className="flex flex-col items-center justify-center mb-8">
+                        <div className="text-center text-white p-8 min-w-[300px]">
+                            <div className="mb-6">
+                                {diceResult === null ? (
+                                    <div className="animate-bounce">
+                                        <p className="mb-4 text-sm text-gray-300">Roll the dice to grow stronger!</p>
+                                        <button
+                                            onClick={rollDiceAndSave}
+                                            disabled={isSaving}
+                                            className="bg-purple-600 text-white px-6 py-3 pixel-button border-2 border-white hover:bg-purple-500"
+                                        >
+                                            🎲 ROLL DICE
+                                        </button>
                                     </div>
-                                    <p className="text-2xl text-green-400 font-bold pixel-text">{rewardMessage}</p>
-                                    <p className="text-xs text-gray-400 mt-2">Saving progress...</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-16 h-16 bg-white text-black flex items-center justify-center text-4xl border-4 border-black font-bold mb-2">
+                                            {diceResult}
+                                        </div>
+                                        <p className="text-2xl text-white font-bold pixel-text">{rewardMessage}</p>
+                                        <p className="text-xs text-gray-400 mt-2">Saving progress...</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
