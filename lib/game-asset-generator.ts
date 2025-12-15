@@ -246,49 +246,49 @@ Pixel-art character facing RIGHT, idle ready stance: head slightly turned right,
 
 Weapon consistency rule: The weapon must remain EXACTLY the same as in the reference image — same shape, size, color, and design details. Do NOT change or redesign the weapon in any way. The character must hold the same weapon throughout all frames.
 
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame2_chargeup: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, charge-up pose: head focused on weapon tip, torso leaning slightly back, right arm lifting weapon upward with elbow bent, left hand balancing or supporting, feet stable with weight shifted backward, small glowing orb forming at weapon tip with spark particles, transparent background. CRITICAL: Character must face RIGHT direction.`,
       frame3_aim: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
-Pixel-art character facing RIGHT, pre-attack aiming pose: head locked forward with fierce focus, torso leaning slightly forward, right arm extending weapon forward, left arm balancing near chest, front foot pressing down, energy orb at weapon tip growing brighter with small electric arcs, transparent background. CRITICAL: Character must face RIGHT direction.`,
+Pixel-art character facing RIGHT, pre-attack aiming pose: head locked forward with fierce focus, torso leaning slightly forward, right arm extending weapon forward, left arm balancing near chest, front foot pressing down, energy orb at weapon tip growing brighter with small electric arcs, transparent background. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame4_lunge: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
-Pixel-art character facing RIGHT, lunge attack-prep pose: head determined and looking forward, torso thrust forward, right arm fully extended pushing weapon ahead, left arm stretched back for balance, front leg stepping forward bearing weight, weapon tip glowing at peak intensity with bright aura and motion trails, transparent background. CRITICAL: Character must face RIGHT direction, same as other frames.`,
+Pixel-art character facing RIGHT, lunge attack-prep pose: head determined and looking forward, torso thrust forward, right arm fully extended pushing weapon ahead, left arm stretched back for balance, front leg stepping forward bearing weight, weapon tip glowing at peak intensity with bright aura and motion trails, transparent background. CRITICAL: Character must face RIGHT direction, same as other frames. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame5_impact: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
-Pixel-art character facing RIGHT, attack impact pose: head focused forward, torso leaning into the strike, right arm extended holding weapon, left arm offset for balance, front foot planted, massive energy burst from weapon tip with bright white core and colored shockwave rings, spark particles around, transparent background. CRITICAL: Character must face RIGHT direction.`,
+Pixel-art character facing RIGHT, attack impact pose: head focused forward, torso leaning into the strike, right arm extended holding weapon, left arm offset for balance, front foot planted, massive energy burst from weapon tip with bright white core and colored shockwave rings, spark particles around, transparent background. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame6_aftershock: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, aftershock dissipate pose: head slightly lowered but still facing right, expression calm but focused, torso slightly leaned forward holding weapon extended after impact, both hands steady but relaxed, feet fixed in same stance as impact frame. 
 Bright energy from weapon tip has just faded — residual pink light rings expand outward, fading into transparency with soft glow, small spark particles dispersing and disappearing, faint motion blur suggesting energy release completion. 
-Transparent background. CRITICAL: Character must face RIGHT direction, maintain same pivot and proportions as previous frames.`
+Transparent background. CRITICAL: Character must face RIGHT direction, maintain same pivot and proportions as previous frames. Absolutely NO text, letters, words, or any written characters should appear in the image.`
     } : {
       frame1_prepare: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, jump preparation pose: head slightly tilted down, eyes forward, torso slightly crouched, knees bent, right hand holding the same weapon low near waist, left arm slightly back for balance, feet shoulder-width pressing down as if gathering strength to jump. 
-Transparent background. Maintain SAME weapon design/shape/size/colors as reference; 1:1 head-to-body, two arms two legs, SAME pivot as other actions. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. Maintain SAME weapon design/shape/size/colors as reference; 1:1 head-to-body, two arms two legs, SAME pivot as other actions. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame2_launch: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, jump launch pose: head oriented slightly upward, torso pushing upward dynamically, both legs extending from crouch, right arm pulling weapon slightly backward for momentum, left arm forward balancing, small dust particles under feet. 
-Transparent background. SAME weapon & proportions & pivot. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. SAME weapon & proportions & pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame3_air_rise: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, mid-air rising pose: head slightly up, torso extended, legs tucked slightly toward body, right arm holding weapon diagonally across the front, left arm extended backward for balance, faint motion lines beneath character. 
-Transparent background. SAME weapon, SAME pivot, 1:1 chibi. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. SAME weapon, SAME pivot, 1:1 chibi. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame4_air_peak: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, jump apex pose: head level, torso upright, both legs lightly bent as if floating at the top, right arm steady holding weapon horizontally, left arm relaxed near side, subtle floating particles around. 
-Transparent background. SAME weapon & proportions & pivot. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. SAME weapon & proportions & pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame5_air_fall: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, descending pose: head angled slightly downward, torso leaning a bit forward, right arm and weapon angled downward preparing to land, left arm behind for balance, legs extended downward with knees slightly bent, thin downward motion trails. 
-Transparent background. SAME weapon & pivot. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. SAME weapon & pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame6_land: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, landing impact pose: head slightly forward, torso lowered with deep knee bend, front foot planted, back foot heel lifted, right hand gripping weapon forward for stability, small dust clouds under feet and a tiny shock ring. 
-Transparent background. Maintain SAME weapon (no redesign), 1:1 ratio, two arms two legs, SAME pivot as previous frames. CRITICAL: Character must face RIGHT direction.`
+Transparent background. Maintain SAME weapon (no redesign), 1:1 ratio, two arms two legs, SAME pivot as previous frames. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`
     };
 
     const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
@@ -416,13 +416,13 @@ Pixel-art character facing RIGHT, just hit by a strong impact.
 Head snapping backward LEFT of torso, eyes wide open with pain or shock, eyebrows sharply raised. 
 Mouth open in a small gasp, torso bending back 15°, one foot losing balance.
 Both arms flail from recoil, weapon shaking loosely in hand.
-Expression: stunned and in pain — NOT calm. Transparent background. SAME weapon (shape/color/size). CRITICAL: Character must face RIGHT direction.`,
+Expression: stunned and in pain — NOT calm. Transparent background. SAME weapon (shape/color/size). CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame2_knockback_airborne: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, lifted into the air mid-knockback.
 Head still LEFT of body but tilted back further, eyes half-open with fading awareness, mouth slightly open as if gasping mid-air.
 Torso rotated backward about 45°, legs lifting higher to the RIGHT, arms spread from inertia.
-Expression: dazed and slipping consciousness. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction.`,
+Expression: dazed and slipping consciousness. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame3_mid_flip: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, mid-air slow rotation between falling and upside-down.
@@ -430,7 +430,7 @@ Head still LEFT of legs, slightly lower than torso (about 75° rotation from upr
 Torso diagonal with chest pointing upward-left, legs slightly higher toward RIGHT.
 Both arms extended diagonally from body, following spin inertia.
 Expression fading — eyes half-closed, mouth small and tense.
-Weapon tilting backward along spin, still in hand. Gravity acts downward, rotation CLOCKWISE, not too steep. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction.`,
+Weapon tilting backward along spin, still in hand. Gravity acts downward, rotation CLOCKWISE, not too steep. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame4_fall_transition: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, descending mid-fall rotation.
@@ -439,13 +439,13 @@ Torso curved slightly backward, legs still higher to RIGHT.
 Arms and weapon trailing downward naturally from momentum.
 Expression weak, eyes mostly closed, body showing limpness.
 Gravity pulls character down, maintaining CLOCKWISE rotation (head always LEFT of legs).
-Transparent background. SAME weapon/pivot/proportion. CRITICAL: Character must face RIGHT direction.`,
+Transparent background. SAME weapon/pivot/proportion. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame5_rest: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, lying motionless on ground.
 Head LEFT of torso, resting sideways; eyes fully closed; mouth slightly parted; expression devoid of life, limbs relaxed and heavy.
 Weapon on the ground next to hand, no glow, no movement.
-No peace, no smile — just weight and stillness. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction.`
+No peace, no smile — just weight and stillness. Transparent background. SAME weapon/pivot. CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`
     };
 
     const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
@@ -578,7 +578,7 @@ feet shoulder-width apart, weight centered,
 a faint soft glow at the weapon tip,
 transparent background.
 Weapon consistency rule: The weapon must remain EXACTLY the same as in the reference image — shape, size, color, and all design details unchanged.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame2_shield_up: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, defensive “shield-up” pose:
@@ -589,7 +589,7 @@ left hand raised near chest for balance or secondary guard,
 feet anchored strongly with weight shifted back,
 small protective energy shimmer forming around weapon tip,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame3_pre_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, preparing to block impact:
@@ -600,7 +600,7 @@ left arm tensed and positioned near torso for stability,
 front foot pressing firmly into the ground,
 weapon tip emitting brighter defensive energy with thin shimmering lines,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame4_impact_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, blocking an incoming strike:
@@ -611,7 +611,7 @@ left arm extended backward to counterbalance recoil,
 front leg bent absorbing impact,
 weapon tip generating a strong defensive aura with bright burst sparks at point of contact,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame5_block_shockwave: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, receiving major impact:
@@ -623,7 +623,7 @@ front foot nailed to the ground,
 a large defensive energy burst (white core + color shockwave rings) exploding outward upon impact,
 scattered spark particles around weapon tip,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame6_guard_recovery: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, post-block recovery stance:
@@ -636,7 +636,7 @@ energy at weapon tip fading — soft pink or blue residual rings expanding outwa
 tiny spark fragments dissipating into transparency,
 light motion blur showing final energy dissipation,
 transparent background.
-CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions, and weapon.`
+CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions, and weapon. Absolutely NO text, letters, words, or any written characters should appear in the image.`
     };
 
     const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
@@ -740,7 +740,7 @@ feet shoulder-width apart, weight centered,
 a faint soft glow at the weapon tip,
 transparent background.
 Weapon consistency rule: The weapon must remain EXACTLY the same as in the reference image — shape, size, color, and all design details unchanged.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame2_shield_up: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, defensive “shield-up” pose:
@@ -751,7 +751,7 @@ left hand raised near chest for balance or secondary guard,
 feet anchored strongly with weight shifted back,
 small protective energy shimmer forming around weapon tip,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame3_pre_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, preparing to block impact:
@@ -762,7 +762,7 @@ left arm tensed and positioned near torso for stability,
 front foot pressing firmly into the ground,
 weapon tip emitting brighter defensive energy with thin shimmering lines,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame4_impact_block: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, blocking an incoming strike:
@@ -773,7 +773,7 @@ left arm extended backward to counterbalance recoil,
 front leg bent absorbing impact,
 weapon tip generating a strong defensive aura with bright burst sparks at point of contact,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame5_block_shockwave: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, receiving major impact:
@@ -785,7 +785,7 @@ front foot nailed to the ground,
 a large defensive energy burst (white core + color shockwave rings) exploding outward upon impact,
 scattered spark particles around weapon tip,
 transparent background.
-CRITICAL: Character must face RIGHT direction.`,
+CRITICAL: Character must face RIGHT direction. Absolutely NO text, letters, words, or any written characters should appear in the image.`,
       frame6_guard_recovery: `다음 캐릭터를 프롬프트에 맞게 이미지 생성해줘.
 
 Pixel-art character facing RIGHT, post-block recovery stance:
@@ -798,7 +798,7 @@ energy at weapon tip fading — soft pink or blue residual rings expanding outwa
 tiny spark fragments dissipating into transparency,
 light motion blur showing final energy dissipation,
 transparent background.
-CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions, and weapon.`
+CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions, and weapon. Absolutely NO text, letters, words, or any written characters should appear in the image.`
     };
 
     const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });
@@ -893,6 +893,7 @@ CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions,
       
       let prompt = "Create a PIXEL ART character sprite with these specifications:\n\n";
       prompt += `Character: ${description}\n`;
+      prompt += "CRITICAL: Absolutely NO text, letters, words, or any written characters should appear in the image. The image must contain ONLY the character visual, no text whatsoever.\n\n";
       
       if (color && color !== "None") {
         prompt += `Primary color scheme: ${color}\n`;
@@ -920,6 +921,7 @@ CRITICAL: Character must face RIGHT direction, maintain same pivot, proportions,
       prompt += "- Retro video game character design\n";
       prompt += "- IMPORTANT: Face/head height = body height (1:1 ratio)\n";
       prompt += "- **UNIFORM STYLE**: Same art style, proportions, and rendering as reference characters\n";
+      prompt += "- **CRITICAL**: Absolutely NO text, letters, words, or any written characters should appear in the image. The image must contain ONLY the character visual, no text whatsoever.\n";
       
       console.log('Calling Gemini API with model:', this.imageGenModelName);
       const model = this.genAI.getGenerativeModel({ model: this.imageGenModelName });

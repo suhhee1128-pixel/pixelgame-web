@@ -776,18 +776,61 @@ export default function GameTab() {
           });
           
           if (res.ok) {
-              setSpriteStatus('✅ Character & Sprites saved!');
-              setTimeout(() => {
-                  setPhase('character_select');
-                  setIsSaving(false);
-                  // Reset states
-                  setDescription('');
-                  setGeneratedImage(null);
-                  setGeneratedSprites({});
-                  setAttackSprites([]); setAttack2Sprites([]); setJumpSprites([]); setDeadSprites([]); setDefenseSprites([]);
-                  setFrameSelectionMode(null);
-                  setSelectedFrames(new Set());
-              }, 1000);
+              const savedChar = await res.json();
+              setSpriteStatus('✅ Character & Sprites saved! Starting game...');
+              
+              // Load the saved character and start game
+              const char = savedChar;
+              
+              // Load main image
+              const mainImg = new Image();
+              mainImg.src = char.imageUrl;
+              await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
+              playerRef.current.image = removeBackground(mainImg);
+              
+              // Helper to load array of URLs
+              const loadUrlFrames = async (urls: string[]) => {
+                  const promises = urls.map(url => new Promise<HTMLCanvasElement | null>((resolve) => {
+                      const img = new Image();
+                      img.src = url;
+                      img.onload = () => resolve(removeBackground(img));
+                      img.onerror = () => resolve(null);
+                  }));
+                  const results = await Promise.all(promises);
+                  return results.filter((f): f is HTMLCanvasElement => f !== null);
+              };
+              
+              // Load available frames
+              if (char.spriteFrames?.idle) playerRef.current.frames = await loadUrlFrames(char.spriteFrames.idle);
+              if (char.spriteFrames?.attack) playerRef.current.attackFrames = await loadUrlFrames(char.spriteFrames.attack);
+              if (char.spriteFrames?.attack2) playerRef.current.attack2Frames = await loadUrlFrames(char.spriteFrames.attack2);
+              if (char.spriteFrames?.jump) playerRef.current.jumpFrames = await loadUrlFrames(char.spriteFrames.jump);
+              if (char.spriteFrames?.dead) playerRef.current.deadFrames = await loadUrlFrames(char.spriteFrames.dead);
+              if (char.spriteFrames?.defense) playerRef.current.defenseFrames = await loadUrlFrames(char.spriteFrames.defense);
+              
+              // Fallback if no idle frames
+              if (!char.spriteFrames?.idle) {
+                  playerRef.current.frames = [playerRef.current.image as HTMLCanvasElement];
+              }
+              
+              // Set player stats
+              playerRef.current.hp = char.stats?.hp || 20;
+              playerRef.current.maxHp = char.stats?.maxHp || 20;
+              playerRef.current.atk = char.stats?.atk || 1;
+              
+              playerRef.current.state = 'idle';
+              setIsSaving(false);
+              
+              // Reset states
+              setDescription('');
+              setGeneratedImage(null);
+              setGeneratedSprites({});
+              setAttackSprites([]); setAttack2Sprites([]); setJumpSprites([]); setDeadSprites([]); setDefenseSprites([]);
+              setFrameSelectionMode(null);
+              setSelectedFrames(new Set());
+              
+              // Start game
+              setPhase('playing');
           } else {
               throw new Error('Failed to save');
           }
@@ -2503,10 +2546,10 @@ export default function GameTab() {
                     {generatedImage && (
                         <div className="flex flex-col gap-2 mt-auto shrink-0">
                              <button onClick={handleSaveCharacter} disabled={isSaving} className="pixel-button w-full bg-green-500 text-white py-2 text-base hover:bg-green-600 border-black">
-                                 {isSaving ? 'SAVING...' : 'SAVE TO COLLECTION'}
+                                 {isSaving ? 'SAVING...' : 'SAVE'}
                              </button>
                              <button onClick={() => setPhase('sprites')} className="pixel-button w-full bg-blue-500 text-white py-2 text-base hover:bg-blue-600 border-black">
-                                 CREATE SPRITES (OPTIONAL)
+                                 CREATE SPRITES
                              </button>
                         </div>
                     )}
@@ -2731,7 +2774,7 @@ export default function GameTab() {
                     {(attackSprites.length > 0 || attack2Sprites.length > 0 || jumpSprites.length > 0 || deadSprites.length > 0 || defenseSprites.length > 0) && (
                         <div className="flex flex-col gap-2">
                             <button onClick={handleSaveAll} disabled={isSaving} className="pixel-button w-full bg-blue-600 text-white py-2 text-base hover:bg-blue-700 border-black animate-pulse">
-                                {isSaving ? 'SAVING...' : 'SAVE ALL & FINISH'}
+                                {isSaving ? 'SAVING...' : 'SAVE ALL & START'}
                             </button>
                             {/* <button onClick={() => setPhase('playing')} className="pixel-button w-full bg-red-500 text-white py-2 text-base hover:bg-red-600 border-black">START BATTLE (Test)</button> */}
                         </div>

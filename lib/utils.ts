@@ -83,6 +83,7 @@ export function buildCharacterPrompt(character_description: string, style_prefer
     - Consistent art style
     - Follow the reference image if provided
     - No shadows
+    - CRITICAL: Absolutely NO text, letters, words, or any written characters should appear in the image. The image must contain ONLY the character visual, no text whatsoever.
     `;
   
   if (style_preferences) {
@@ -108,6 +109,7 @@ export function buildSpritePrompt(character_description: string, action: string,
     - Consistent art style
     - Show the character in the middle of performing the action
     - Follow the reference image if provided
+    - CRITICAL: Absolutely NO text, letters, words, or any written characters should appear in the image. The image must contain ONLY the character visual, no text whatsoever.
     `;
   
   if (style_preferences) {
