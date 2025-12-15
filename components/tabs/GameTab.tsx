@@ -55,10 +55,6 @@ const colorOptions = [
     { name: 'Black', value: 'Black', color: '#000000' },
     { name: 'White', value: 'White', color: '#FFFFFF' },
     { name: 'Brown', value: 'Brown', color: '#A52A2A' },
-    { name: 'Orange', value: 'Orange', color: '#FFA500' },
-    { name: 'Gray', value: 'Gray', color: '#808080' },
-    { name: 'Gold', value: 'Gold', color: '#FFD700' },
-    { name: 'Silver', value: 'Silver', color: '#C0C0C0' },
 ];
 const moodOptions = ['None', 'Cute', 'Scary', 'Futuristic', 'Fantasy', 'Elegant', 'Powerful'];
 const weaponOptions = ['None', 'Baguette', 'Magic Wand', 'Candy', 'Sword'];
@@ -2465,7 +2461,7 @@ export default function GameTab() {
   const renderLeftPanel = () => {
       if (phase === 'creation') {
           return (
-            <div className="flex flex-col gap-3 h-full pr-2">
+            <div className="flex flex-col gap-3 h-full pr-2 overflow-y-auto">
                 <div className="p-3 border-4 border-black bg-white shrink-0">
                     <label className="pixel-label block text-sm mb-1 text-black">CHARACTER NAME</label>
                     <input
@@ -2486,14 +2482,14 @@ export default function GameTab() {
                 </div>
                 <div className="p-3 border-4 border-black bg-white shrink-0">
                     <label className="pixel-label block text-sm mb-1 text-black">HAIR COLOR / PRIMARY COLOR</label>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex gap-1">
                         {colorOptions.map((option) => (
                             <button key={option.value} onClick={() => setColor(option.value)} className={`pixel-color-box w-6 h-6 ${color === option.value ? 'selected ring-2 ring-black' : ''}`} style={{ backgroundColor: option.color, borderColor: option.color === '#FFFFFF' || option.color === 'transparent' ? 'black' : option.color }} title={option.name} />
                         ))}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-                    <div className="p-3 h-full overflow-y-auto border-4 border-black bg-white">
+                <div className="grid grid-cols-2 gap-3 shrink-0">
+                    <div className="p-3 border-4 border-black bg-white">
                         <label className="pixel-label block text-sm mb-1 text-black">MOOD</label>
                         <div className="space-y-1">
                             {moodOptions.map((option) => (
@@ -2504,7 +2500,7 @@ export default function GameTab() {
                             ))}
                         </div>
                     </div>
-                    <div className="p-3 h-full overflow-y-auto border-4 border-black bg-white">
+                    <div className="p-3 border-4 border-black bg-white">
                         <label className="pixel-label block text-sm mb-1 text-black">WEAPON</label>
                         <div className="flex flex-col gap-1">
                             {weaponOptions.map((option) => (
