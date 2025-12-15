@@ -64,6 +64,7 @@ export default function GameTab() {
   const [phase, setPhase] = useState<GamePhase>('character_select'); // Start at Character Select
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedChar, setSelectedChar] = useState<Character | null>(null);
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
   
   // Creation State
   const [characterName, setCharacterName] = useState(''); // Character name input
@@ -1278,16 +1279,14 @@ export default function GameTab() {
     try {
       setSpriteStatus('Creating ZIP file...');
       
-      // Prepare data with type information for each frame set
-      const frameData = allFrames.map(({ type, urls }) => ({
-        type,
-        imageUrls: urls
-      }));
+      // Flatten all selected image URLs into a single array
+      // API expects { imageUrls: string[] } format
+      const imageUrls = allFrames.flatMap(({ urls }) => urls);
       
       const response = await fetch('/api/download/frames', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frames: frameData }),
+        body: JSON.stringify({ imageUrls }),
       });
       
       if (response.ok) {
@@ -1303,6 +1302,10 @@ export default function GameTab() {
         setSpriteStatus('✅ Downloaded ZIP!');
         setFrameSelectionMode(null);
         setSelectedFrames(new Set());
+      } else {
+        // Handle error response
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
+        setSpriteStatus(`❌ Download failed: ${errorData.error || `HTTP ${response.status}`}`);
       }
     } catch (error: any) { 
       setSpriteStatus(`❌ Error: ${error.message}`); 
@@ -2419,42 +2422,142 @@ export default function GameTab() {
 
   // --- RENDER ---
   const renderCharacterSelect = () => (
-      <div className="w-full h-full flex flex-col p-8 bg-gray-900 overflow-hidden relative">
-          <h2 className="text-3xl text-white mb-6 pixel-text text-center">SELECT YOUR HERO</h2>
-          
-          <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-hidden">
+          <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-white p-6 shadow-xl relative flex flex-col">
+              <h2 
+                className="text-4xl mb-6 text-center font-bold shrink-0"
+                style={{ 
+                  fontFamily: "'Galmuri11', 'Courier New', monospace",
+                  fontWeight: 'bold',
+                  WebkitFontSmoothing: 'none',
+                  MozOsxFontSmoothing: 'unset',
+                  textRendering: 'optimizeSpeed',
+                  color: 'white',
+                  textShadow: 
+                    // Inner dark blue-purple stroke (1px layers)
+                    '1px 0 0 #4A148C, -1px 0 0 #4A148C, 0 1px 0 #4A148C, 0 -1px 0 #4A148C, ' +
+                    '1px 1px 0 #4A148C, -1px -1px 0 #4A148C, 1px -1px 0 #4A148C, -1px 1px 0 #4A148C, ' +
+                    // Middle outline layer (2-3px) - Changed to #0084FF
+                    '2px 0 0 #0084FF, -2px 0 0 #0084FF, 0 2px 0 #0084FF, 0 -2px 0 #0084FF, ' +
+                    '2px 2px 0 #0084FF, -2px -2px 0 #0084FF, 2px -2px 0 #0084FF, -2px 2px 0 #0084FF, ' +
+                    '3px 0 0 #0084FF, -3px 0 0 #0084FF, 0 3px 0 #0084FF, 0 -3px 0 #0084FF, ' +
+                    '3px 3px 0 #0084FF, -3px -3px 0 #0084FF, 3px -3px 0 #0084FF, -3px 3px 0 #0084FF, ' +
+                    // Outer dark shadow (offset bottom-right)
+                    '4px 4px 0 #000000, 5px 5px 0 #000000, 4px 5px 0 #000000, 5px 4px 0 #000000',
+                  filter: 'none',
+                  letterSpacing: '2px'
+                }}
+              >
+                SELECT YOUR HERO
+              </h2>
+              
+              <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 min-h-0">
               {/* New Character Card */}
               <div 
                   onClick={() => setPhase('creation')}
-                  className="border-4 border-dashed border-gray-500 bg-gray-800 hover:bg-gray-700 cursor-pointer p-6 flex flex-col items-center justify-center min-h-[300px] group transition-colors"
+                  className="border-4 border-dashed cursor-pointer p-4 flex flex-col items-center justify-center min-h-[200px] group transition-colors"
+                  style={{ borderColor: '#0084FF', backgroundColor: '#ACD4FF' }}
               >
-                  <div className="text-6xl text-gray-500 group-hover:text-white mb-4">+</div>
-                  <p className="text-xl text-gray-400 group-hover:text-white pixel-text">CREATE NEW</p>
+                  <div className="text-4xl mb-2" style={{ color: '#0084FF' }}>+</div>
+                  <p className="text-lg" style={{ color: '#0084FF', fontFamily: "'Galmuri11', 'Courier New', monospace", fontWeight: 'bold', WebkitFontSmoothing: 'none', MozOsxFontSmoothing: 'unset', textRendering: 'optimizeSpeed' }}>CREATE NEW</p>
               </div>
 
-              {/* Existing Characters */}
-              {characters.map(char => (
+                  {/* Existing Characters */}
+              {characters
+                  .filter(char => !failedImageIds.has(char.id) && char.name !== '마녀')
+                  .map(char => (
                   <div 
                       key={char.id}
                       onClick={() => startGameWithCharacter(char)}
-                      className="border-4 border-white bg-slate-800 hover:bg-slate-700 cursor-pointer p-4 flex flex-col items-center relative group transition-transform hover:-translate-y-2"
+                      className="bg-white hover:bg-gray-50 cursor-pointer p-3 flex flex-col items-center relative group transition-transform hover:-translate-y-2"
+                      style={{ 
+                        border: 'none',
+                        backgroundImage: 'url(/box2.png)',
+                        backgroundSize: '100% 100%',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'center',
+                        position: 'relative',
+                        aspectRatio: '1 / 1',
+                        width: '100%'
+                      }}
                   >
-                      <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center border-2 border-gray-600">
-                          <img src={char.imageUrl} alt={char.name} className="w-3/4 h-3/4 object-contain" style={{ imageRendering: 'pixelated' }} />
+                      {/* Level Box - Centered at top */}
+                      <div className="relative mb-1 shrink-0" style={{ imageRendering: 'pixelated', zIndex: 10 }}>
+                          <img src="/lv.png" alt="LV" style={{ imageRendering: 'pixelated', height: 'auto', width: 'auto', objectFit: 'contain', display: 'block' }} />
+                          <div className="absolute top-0 left-0 right-0 bottom-0 flex items-center justify-end" style={{ 
+                              color: 'white', 
+                              fontFamily: "'Galmuri11', 'Courier New', monospace", 
+                              fontWeight: 'bold', 
+                              WebkitFontSmoothing: 'none', 
+                              MozOsxFontSmoothing: 'unset', 
+                              textRendering: 'optimizeSpeed',
+                              fontSize: '0.7rem',
+                              paddingRight: '8px',
+                              paddingTop: '2px',
+                              pointerEvents: 'none',
+                              zIndex: 11
+                          }}>
+                              {char.winCount || 1}
+                          </div>
                       </div>
-                      <h3 className="text-xl text-white font-bold mb-2 pixel-text">{char.name}</h3>
-                      <div className="w-full grid grid-cols-2 gap-2 text-sm text-gray-300">
-                          <div className="bg-gray-900 p-1 text-center border border-gray-600">HP {char.stats.hp}</div>
-                          <div className="bg-gray-900 p-1 text-center border border-gray-600">ATK {char.stats.atk}</div>
+                      
+                      {/* Character Image */}
+                      <div className="bg-white flex items-center justify-center relative inline-block" style={{ flexShrink: 1, flexGrow: 0 }}>
+                          <img 
+                              src={char.imageUrl} 
+                              alt={char.name} 
+                              className="object-contain" 
+                              style={{ imageRendering: 'pixelated', maxWidth: '200px', maxHeight: '200px', display: 'block' }}
+                              onError={() => {
+                                  setFailedImageIds(prev => new Set(prev).add(char.id));
+                              }}
+                          />
                       </div>
-                      <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 font-bold">LV. {char.winCount || 1}</div>
+                      
+                      {/* Character Name - No margin bottom */}
+                      <h3 className="text-base font-bold" style={{ color: 'black', fontFamily: "'Galmuri11', 'Courier New', monospace", fontWeight: 'bold', WebkitFontSmoothing: 'none', MozOsxFontSmoothing: 'unset', textRendering: 'optimizeSpeed', marginTop: 0, marginBottom: 0 }}>{char.name}</h3>
+                      <div className="w-full grid grid-cols-2 gap-3" style={{ maxWidth: '85%' }}>
+                          <div className="relative w-full flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                              <img src="/HP.png" alt="HP" style={{ imageRendering: 'pixelated', height: '32px', width: 'auto', objectFit: 'contain' }} />
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ 
+                                  color: 'white', 
+                                  fontFamily: "'Galmuri11', 'Courier New', monospace", 
+                                  fontWeight: 'bold', 
+                                  WebkitFontSmoothing: 'none', 
+                                  MozOsxFontSmoothing: 'unset', 
+                                  textRendering: 'optimizeSpeed',
+                                  fontSize: '0.75rem'
+                              }}>
+                                  <div className="flex items-center justify-center" style={{ width: '40%', height: '100%', marginLeft: '60%' }}>
+                                      {char.stats.hp}
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="relative w-full flex items-center justify-center" style={{ imageRendering: 'pixelated' }}>
+                              <img src="/attack.png" alt="ATK" style={{ imageRendering: 'pixelated', height: '32px', width: 'auto', objectFit: 'contain' }} />
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ 
+                                  color: 'white', 
+                                  fontFamily: "'Galmuri11', 'Courier New', monospace", 
+                                  fontWeight: 'bold', 
+                                  WebkitFontSmoothing: 'none', 
+                                  MozOsxFontSmoothing: 'unset', 
+                                  textRendering: 'optimizeSpeed',
+                                  fontSize: '0.75rem'
+                              }}>
+                                  <div className="flex items-center justify-center" style={{ width: '40%', height: '100%', marginLeft: '60%' }}>
+                                      {char.stats.atk}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
                   </div>
               ))}
+              </div>
+              
+              <button onClick={() => window.location.href = '/'} className="absolute top-4 left-4 hover:text-gray-600" style={{ color: 'black', fontFamily: "'Galmuri11', 'Courier New', monospace", fontWeight: 'bold', WebkitFontSmoothing: 'none', MozOsxFontSmoothing: 'unset', textRendering: 'optimizeSpeed', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>
+                  &lt; BACK
+              </button>
           </div>
-          
-          <button onClick={() => window.location.href = '/'} className="absolute top-8 left-8 text-white hover:text-gray-300 pixel-text">
-              &lt; BACK
-          </button>
       </div>
   );
 
@@ -2980,6 +3083,28 @@ export default function GameTab() {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-hidden">
             <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-white p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 shadow-xl relative">
+                {/* BACK Button */}
+                {phase === 'creation' && (
+                  <button 
+                    onClick={() => setPhase('character_select')} 
+                    className="absolute top-4 left-4 hover:text-gray-600" 
+                    style={{ 
+                      color: 'black', 
+                      fontFamily: "'Galmuri11', 'Courier New', monospace", 
+                      fontWeight: 'bold', 
+                      WebkitFontSmoothing: 'none', 
+                      MozOsxFontSmoothing: 'unset', 
+                      textRendering: 'optimizeSpeed', 
+                      background: 'transparent', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: '1rem',
+                      zIndex: 10
+                    }}
+                  >
+                    &lt; BACK
+                  </button>
+                )}
                 {/* Decorative pixel corners or title could go here if needed */}
                 <div className="lg:col-span-2 h-full min-h-0">
                     {renderLeftPanel()}
@@ -2996,43 +3121,57 @@ export default function GameTab() {
     <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-transparent overflow-hidden">
         <div className="w-full max-w-6xl h-[650px] border-4 border-black bg-black p-0 shadow-xl relative flex items-center justify-center">
             <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="w-full h-full object-contain pixelated" />
-            {(phase === 'gameover' || phase === 'victory') && (
+            {phase === 'gameover' && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-end" style={{
+                    backgroundImage: 'url(/game_over.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat'
+                }}>
+                    <button 
+                        onClick={() => window.location.href = '/'} 
+                        className="mb-8 pixel-button bg-white text-black px-6 py-3 border-2 border-gray-500 hover:bg-gray-200"
+                        style={{
+                            fontFamily: "'Galmuri11', 'Courier New', monospace",
+                            fontWeight: 'bold',
+                            WebkitFontSmoothing: 'none',
+                            MozOsxFontSmoothing: 'unset',
+                            textRendering: 'optimizeSpeed'
+                        }}
+                    >
+                        RETURN HOME
+                    </button>
+                </div>
+            )}
+            {phase === 'victory' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
                     <div className="text-center text-white p-8 border-4 border-white bg-gray-900 min-w-[300px]">
-                        <h2 className={`text-4xl mb-6 pixel-text ${phase === 'victory' ? 'text-yellow-400' : 'text-red-500'}`}>
-                            {phase === 'victory' ? 'VICTORY!' : 'GAME OVER'}
+                        <h2 className={`text-4xl mb-6 pixel-text text-yellow-400`}>
+                            VICTORY!
                         </h2>
                         
-                        {phase === 'victory' && (
-                            <div className="mb-6">
-                                {diceResult === null ? (
-                                    <div className="animate-bounce">
-                                        <p className="mb-4 text-sm text-gray-300">Roll the dice to grow stronger!</p>
-                                        <button 
-                                            onClick={rollDiceAndSave} 
-                                            disabled={isSaving}
-                                            className="bg-purple-600 text-white px-6 py-3 pixel-button border-2 border-white hover:bg-purple-500"
-                                        >
-                                            🎲 ROLL DICE
-                                        </button>
+                        <div className="mb-6">
+                            {diceResult === null ? (
+                                <div className="animate-bounce">
+                                    <p className="mb-4 text-sm text-gray-300">Roll the dice to grow stronger!</p>
+                                    <button 
+                                        onClick={rollDiceAndSave} 
+                                        disabled={isSaving}
+                                        className="bg-purple-600 text-white px-6 py-3 pixel-button border-2 border-white hover:bg-purple-500"
+                                    >
+                                        🎲 ROLL DICE
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="w-16 h-16 bg-white text-black flex items-center justify-center text-4xl border-4 border-black font-bold mb-2">
+                                        {diceResult}
                                     </div>
-                                ) : (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="w-16 h-16 bg-white text-black flex items-center justify-center text-4xl border-4 border-black font-bold mb-2">
-                                            {diceResult}
-                                        </div>
-                                        <p className="text-2xl text-green-400 font-bold pixel-text">{rewardMessage}</p>
-                                        <p className="text-xs text-gray-400 mt-2">Saving progress...</p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {phase === 'gameover' && (
-                            <button onClick={() => window.location.href = '/'} className="bg-white text-black px-6 py-3 pixel-button border-2 border-gray-500 hover:bg-gray-200">
-                                RETURN HOME
-                            </button>
-                        )}
+                                    <p className="text-2xl text-green-400 font-bold pixel-text">{rewardMessage}</p>
+                                    <p className="text-xs text-gray-400 mt-2">Saving progress...</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

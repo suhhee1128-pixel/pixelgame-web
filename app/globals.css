@@ -563,5 +563,74 @@ body {
     border-style: solid !important;
     box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 0.3) !important;
   }
+
+  .pixel-card-border {
+    position: relative !important;
+    background: white !important;
+  }
+
+  /* Pixel border layers */
+  .pixel-card-border::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    border: 1px solid black;
+    z-index: -1;
+  }
+
+  .pixel-card-border::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 1px solid white;
+    z-index: -1;
+  }
+
+  .pixel-card-border::before,
+  .pixel-card-border::after {
+    content: '' !important;
+    position: absolute !important;
+    width: 6px !important;
+    height: 6px !important;
+    background: black !important;
+    z-index: 1 !important;
+  }
+
+  .pixel-card-border::before {
+    top: -3px !important;
+    left: -3px !important;
+    box-shadow: 
+      1px 0 0 white,
+      0 1px 0 white,
+      1px 1px 0 black,
+      2px 0 0 white,
+      0 2px 0 white,
+      2px 2px 0 black,
+      3px 0 0 white,
+      0 3px 0 white,
+      3px 3px 0 black !important;
+  }
+
+  .pixel-card-border::after {
+    bottom: -3px !important;
+    right: -3px !important;
+    box-shadow: 
+      -1px 0 0 white,
+      0 -1px 0 white,
+      -1px -1px 0 black,
+      -2px 0 0 white,
+      0 -2px 0 white,
+      -2px -2px 0 black,
+      -3px 0 0 white,
+      0 -3px 0 black,
+      -3px -3px 0 black !important;
+  }
+
 }
 
