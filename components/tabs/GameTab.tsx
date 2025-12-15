@@ -70,6 +70,7 @@ export default function GameTab() {
   const [selectedChar, setSelectedChar] = useState<Character | null>(null);
   
   // Creation State
+  const [characterName, setCharacterName] = useState(''); // Character name input
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('None');
   const [mood, setMood] = useState('None');
@@ -755,7 +756,7 @@ export default function GameTab() {
           }
           
           const newCharData = {
-              name: description.split(' ').slice(0, 2).join(' ') || 'New Hero', // Simple name gen
+              name: characterName.trim() || description.split(' ').slice(0, 2).join(' ') || 'New Hero', // Use character name or fallback
               type: 'Custom',
               imageUrl: imageUrl,
               description: description,
@@ -779,6 +780,7 @@ export default function GameTab() {
                   setPhase('character_select'); // Go back to list
                   setIsSaving(false);
                   // Reset form
+                  setCharacterName('');
                   setDescription('');
                   setGeneratedImage(null);
               }, 1000);
@@ -892,7 +894,7 @@ export default function GameTab() {
           if (filteredSprites.dead) uploadedSprites.dead = await uploadSpriteFrames(filteredSprites.dead);
           
           const newCharData = {
-              name: description.split(' ').slice(0, 2).join(' ') || 'New Hero',
+              name: characterName.trim() || description.split(' ').slice(0, 2).join(' ') || 'New Hero', // Use character name or fallback
               type: 'Custom',
               imageUrl: imageUrl,
               description: description,
@@ -958,6 +960,7 @@ export default function GameTab() {
               setIsSaving(false);
               
               // Reset states
+              setCharacterName('');
               setDescription('');
               setGeneratedImage(null);
               setGeneratedSprites({});
@@ -2464,13 +2467,21 @@ export default function GameTab() {
           return (
             <div className="flex flex-col gap-3 h-full pr-2">
                 <div className="p-3 border-4 border-black bg-white shrink-0">
+                    <label className="pixel-label block text-sm mb-1 text-black">CHARACTER NAME</label>
+                    <input
+                        type="text"
+                        value={characterName}
+                        onChange={(e) => setCharacterName(e.target.value)}
+                        placeholder='e.g., "Pink Warrior"'
+                        className="pixel-input w-full text-sm p-2 bg-white text-black border-2 border-black placeholder-gray-400 mb-3"
+                    />
                     <label className="pixel-label block text-sm mb-1 text-black">CHARACTER DESCRIPTION</label>
-                    <textarea 
-                        value={description} 
-                        onChange={(e) => setDescription(e.target.value)} 
-                        placeholder='e.g., "cute pink-haired warrior"' 
-                        className="pixel-input w-full text-sm p-2 bg-white text-black border-2 border-black placeholder-gray-400" 
-                        rows={2} 
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder='e.g., "cute pink-haired warrior"'
+                        className="pixel-input w-full text-sm p-2 bg-white text-black border-2 border-black placeholder-gray-400"
+                        rows={2}
                     />
                 </div>
                 <div className="p-3 border-4 border-black bg-white shrink-0">
