@@ -82,7 +82,7 @@ export default function GameTab() {
   // Sprite State
   const [spriteActionType, setSpriteActionType] = useState<'attack' | 'jump' | 'dead' | 'defense' | 'attack2'>('attack');
   const [spriteReferenceImage, setSpriteReferenceImage] = useState<File | null>(null);
-  
+
   // Temporary storage for all generated sprites before saving
   const [generatedSprites, setGeneratedSprites] = useState<{
       attack?: string[];
@@ -100,6 +100,31 @@ export default function GameTab() {
   const [spriteStatus, setSpriteStatus] = useState('Select animation type...');
   const [spriteLoading, setSpriteLoading] = useState(false);
   const [animationInfo, setAnimationInfo] = useState('');
+  
+  // STEP 1: Core animations generation state
+  const [coreGenerating, setCoreGenerating] = useState(false);
+  const [coreCompleted, setCoreCompleted] = useState(false); // Core 생성 완료 여부
+  const [optionalDefense, setOptionalDefense] = useState(false);
+  const [optionalDead, setOptionalDead] = useState(false);
+  
+  // Progress tracking for each animation type
+  const [progress, setProgress] = useState<{
+    attack: number;
+    attack2: number;
+    jump: number;
+    defense: number;
+    dead: number;
+  }>({
+    attack: 0,
+    attack2: 0,
+    jump: 0,
+    defense: 0,
+    dead: 0
+  });
+  
+  // Frame selection state
+  const [frameSelectionMode, setFrameSelectionMode] = useState<'download' | 'save' | null>(null);
+  const [selectedFrames, setSelectedFrames] = useState<Set<string>>(new Set());
 
   // Game State
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -688,9 +713,48 @@ export default function GameTab() {
 
   const handleSaveAll = async () => {
       if (!generatedImage) return;
-      setIsSaving(true);
       
+      // Enter selection mode if not already
+      if (!frameSelectionMode) {
+        // Initialize all frames as selected
+        const allFrameIds = new Set<string>();
+        attackSprites.forEach((_, i) => allFrameIds.add(`attack-${i}`));
+        attack2Sprites.forEach((_, i) => allFrameIds.add(`attack2-${i}`));
+        jumpSprites.forEach((_, i) => allFrameIds.add(`jump-${i}`));
+        defenseSprites.forEach((_, i) => allFrameIds.add(`defense-${i}`));
+        deadSprites.forEach((_, i) => allFrameIds.add(`dead-${i}`));
+        setSelectedFrames(allFrameIds);
+        setFrameSelectionMode('save');
+        return;
+      }
+      
+      // If already in selection mode, proceed with save
+      if (selectedFrames.size === 0) {
+        setSpriteStatus('❌ Please select at least one frame');
+        return;
+      }
+      
+      setIsSaving(true);
+
       try {
+          // Filter generatedSprites to only include selected frames
+          const filteredSprites: typeof generatedSprites = {};
+          
+          const selectedAttack = attackSprites.filter((_, i) => selectedFrames.has(`attack-${i}`));
+          if (selectedAttack.length > 0) filteredSprites.attack = selectedAttack;
+          
+          const selectedAttack2 = attack2Sprites.filter((_, i) => selectedFrames.has(`attack2-${i}`));
+          if (selectedAttack2.length > 0) filteredSprites.attack2 = selectedAttack2;
+          
+          const selectedJump = jumpSprites.filter((_, i) => selectedFrames.has(`jump-${i}`));
+          if (selectedJump.length > 0) filteredSprites.jump = selectedJump;
+          
+          const selectedDefense = defenseSprites.filter((_, i) => selectedFrames.has(`defense-${i}`));
+          if (selectedDefense.length > 0) filteredSprites.defense = selectedDefense;
+          
+          const selectedDead = deadSprites.filter((_, i) => selectedFrames.has(`dead-${i}`));
+          if (selectedDead.length > 0) filteredSprites.dead = selectedDead;
+          
           const newCharData = {
               name: description.split(' ').slice(0, 2).join(' ') || 'New Hero',
               type: 'Custom',
@@ -702,7 +766,7 @@ export default function GameTab() {
                   atk: 1,
                   speed: 10
               },
-              spriteFrames: generatedSprites // Save all generated frames
+              spriteFrames: filteredSprites // Save only selected frames
           };
           
           const res = await fetch('/api/characters', {
@@ -721,6 +785,8 @@ export default function GameTab() {
                   setGeneratedImage(null);
                   setGeneratedSprites({});
                   setAttackSprites([]); setAttack2Sprites([]); setJumpSprites([]); setDeadSprites([]); setDefenseSprites([]);
+                  setFrameSelectionMode(null);
+                  setSelectedFrames(new Set());
               }, 1000);
           } else {
               throw new Error('Failed to save');
@@ -775,6 +841,147 @@ export default function GameTab() {
     setSpriteLoading(false);
   };
 
+  // STEP 1: Generate Core Animations (Attack + Attack2 + Jump) in parallel
+  const generateCoreAnimations = async () => {
+    if (!spriteReferenceImage) return;
+    setCoreGenerating(true);
+    setCoreCompleted(false); // Reset completion status
+    setSpriteStatus('Starting core animations generation...');
+    
+    // Reset progress
+    setProgress({ attack: 0, attack2: 0, jump: 0, defense: 0, dead: 0 });
+    
+    const coreTypes: ('attack' | 'attack2' | 'jump')[] = ['attack', 'attack2', 'jump'];
+    
+    try {
+        // Generate all core animations in parallel with progress tracking
+        const promises = coreTypes.map(async (actionType) => {
+            const formData = new FormData();
+            formData.append('reference_image', spriteReferenceImage);
+            formData.append('action_type', actionType);
+            
+            // Simulate progress (since we don't have real-time progress from API)
+            const progressInterval = setInterval(() => {
+                setProgress(prev => {
+                    const current = prev[actionType];
+                    if (current < 90) {
+                        return { ...prev, [actionType]: current + Math.random() * 10 };
+                    }
+                    return prev;
+                });
+            }, 1500);
+            
+            setSpriteStatus(`Generating ${actionType}...`);
+            const res = await fetch('/api/generate/sprite-animation', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                // Set to 100% on completion
+                setProgress(prev => ({ ...prev, [actionType]: 100 }));
+                
+                if (actionType === 'attack') { 
+                    setAttackSprites(data.frames); 
+                    setGeneratedSprites(prev => ({ ...prev, attack: data.frames })); 
+                }
+                else if (actionType === 'attack2') { 
+                    setAttack2Sprites(data.frames); 
+                    setGeneratedSprites(prev => ({ ...prev, attack2: data.frames })); 
+                }
+                else if (actionType === 'jump') { 
+                    setJumpSprites(data.frames); 
+                    setGeneratedSprites(prev => ({ ...prev, jump: data.frames })); 
+                }
+                return { success: true, type: actionType };
+            } else {
+                setProgress(prev => ({ ...prev, [actionType]: 0 }));
+                return { success: false, type: actionType, error: data.error };
+            }
+        });
+        
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r.success).length;
+        setSpriteStatus(`✅ Core animations complete! (${successCount}/3)`);
+        setCoreCompleted(true); // Mark as completed
+        
+        // If optional animations are selected, generate them automatically after Core completion
+        if (optionalDefense || optionalDead) {
+            // Small delay to show Core completion message
+            setTimeout(() => {
+                generateOptionalAnimations();
+            }, 500);
+        }
+    } catch(e: any) { 
+        setSpriteStatus(`❌ Error: ${e.message}`); 
+        setProgress({ attack: 0, attack2: 0, jump: 0, defense: 0, dead: 0 });
+    }
+    setCoreGenerating(false);
+  };
+
+  // STEP 1: Generate Optional Animations (Defense + Dead) based on checkboxes
+  const generateOptionalAnimations = async () => {
+    if (!spriteReferenceImage) return;
+    if (!optionalDefense && !optionalDead) return;
+    
+    setSpriteLoading(true);
+    setSpriteStatus('Generating optional animations...');
+    
+    const optionalTypes: ('defense' | 'dead')[] = [];
+    if (optionalDefense) optionalTypes.push('defense');
+    if (optionalDead) optionalTypes.push('dead');
+    
+    try {
+        const promises = optionalTypes.map(async (actionType) => {
+            const formData = new FormData();
+            formData.append('reference_image', spriteReferenceImage);
+            formData.append('action_type', actionType);
+            
+            // Simulate progress
+            const progressInterval = setInterval(() => {
+                setProgress(prev => {
+                    const current = prev[actionType];
+                    if (current < 90) {
+                        return { ...prev, [actionType]: current + Math.random() * 10 };
+                    }
+                    return prev;
+                });
+            }, 500);
+            
+            setSpriteStatus(`Generating ${actionType}...`);
+            const res = await fetch('/api/generate/sprite-animation', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            clearInterval(progressInterval);
+            
+            if (data.success) {
+                // Set to 100% on completion
+                setProgress(prev => ({ ...prev, [actionType]: 100 }));
+                
+                if (actionType === 'defense') { 
+                    setDefenseSprites(data.frames); 
+                    setGeneratedSprites(prev => ({ ...prev, defense: data.frames })); 
+                }
+                else if (actionType === 'dead') { 
+                    setDeadSprites(data.frames); 
+                    setGeneratedSprites(prev => ({ ...prev, dead: data.frames })); 
+                }
+                return { success: true, type: actionType };
+            } else {
+                setProgress(prev => ({ ...prev, [actionType]: 0 }));
+                return { success: false, type: actionType, error: data.error };
+            }
+        });
+        
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r.success).length;
+        setSpriteStatus(`✅ Optional animations complete! (${successCount}/${optionalTypes.length})`);
+    } catch(e: any) { 
+        setSpriteStatus(`❌ Error: ${e.message}`); 
+    }
+    setSpriteLoading(false);
+  };
+
   const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump' | 'dead' | 'defense' | 'attack2') => {
     if (e.target.files && e.target.files.length > 0) {
         const files = Array.from(e.target.files);
@@ -792,31 +999,91 @@ export default function GameTab() {
   };
 
   const downloadAllFrames = async () => {
-    const framesToDownload = spriteActionType === 'attack' ? attackSprites : 
-                             spriteActionType === 'attack2' ? attack2Sprites :
-                             spriteActionType === 'jump' ? jumpSprites : 
-                             spriteActionType === 'defense' ? defenseSprites : deadSprites;
-    if (framesToDownload.length === 0) return;
+    // Enter selection mode if not already
+    if (!frameSelectionMode) {
+      // Initialize all frames as selected
+      const allFrameIds = new Set<string>();
+      attackSprites.forEach((_, i) => allFrameIds.add(`attack-${i}`));
+      attack2Sprites.forEach((_, i) => allFrameIds.add(`attack2-${i}`));
+      jumpSprites.forEach((_, i) => allFrameIds.add(`jump-${i}`));
+      defenseSprites.forEach((_, i) => allFrameIds.add(`defense-${i}`));
+      deadSprites.forEach((_, i) => allFrameIds.add(`dead-${i}`));
+      setSelectedFrames(allFrameIds);
+      setFrameSelectionMode('download');
+      return;
+    }
+    
+    // If already in selection mode, proceed with download
+    if (selectedFrames.size === 0) {
+      setSpriteStatus('❌ Please select at least one frame');
+      return;
+    }
+    
+    // Collect selected frames by type
+    const allFrames: { type: string; urls: string[] }[] = [];
+    
+    const selectedAttack = attackSprites.filter((_, i) => selectedFrames.has(`attack-${i}`));
+    if (selectedAttack.length > 0) {
+      allFrames.push({ type: 'attack', urls: selectedAttack });
+    }
+    
+    const selectedAttack2 = attack2Sprites.filter((_, i) => selectedFrames.has(`attack2-${i}`));
+    if (selectedAttack2.length > 0) {
+      allFrames.push({ type: 'attack2', urls: selectedAttack2 });
+    }
+    
+    const selectedJump = jumpSprites.filter((_, i) => selectedFrames.has(`jump-${i}`));
+    if (selectedJump.length > 0) {
+      allFrames.push({ type: 'jump', urls: selectedJump });
+    }
+    
+    const selectedDefense = defenseSprites.filter((_, i) => selectedFrames.has(`defense-${i}`));
+    if (selectedDefense.length > 0) {
+      allFrames.push({ type: 'defense', urls: selectedDefense });
+    }
+    
+    const selectedDead = deadSprites.filter((_, i) => selectedFrames.has(`dead-${i}`));
+    if (selectedDead.length > 0) {
+      allFrames.push({ type: 'dead', urls: selectedDead });
+    }
+    
+    if (allFrames.length === 0) {
+      setSpriteStatus('❌ Please select at least one frame');
+      return;
+    }
+    
     try {
       setSpriteStatus('Creating ZIP file...');
+      
+      // Prepare data with type information for each frame set
+      const frameData = allFrames.map(({ type, urls }) => ({
+        type,
+        imageUrls: urls
+      }));
+      
       const response = await fetch('/api/download/frames', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrls: framesToDownload }),
+        body: JSON.stringify({ frames: frameData }),
       });
+      
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `sprite_frames_${spriteActionType}_${Date.now()}.zip`;
+        link.download = `sprite_frames_${Date.now()}.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         setSpriteStatus('✅ Downloaded ZIP!');
+        setFrameSelectionMode(null);
+        setSelectedFrames(new Set());
       }
-    } catch (error: any) { setSpriteStatus(`❌ Error: ${error.message}`); }
+    } catch (error: any) { 
+      setSpriteStatus(`❌ Error: ${error.message}`); 
+    }
   };
 
   // --- Game Engine ---
@@ -2023,19 +2290,142 @@ export default function GameTab() {
           return (
             <div className="flex flex-col gap-3 h-full pr-2">
                  <div className="p-3 border-4 border-black bg-white shrink-0">
-                    <label className="pixel-text block text-sm mb-2 font-bold text-black">ANIMATION TYPE</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                       <button onClick={() => setSpriteActionType('attack')} className={`px-3 py-1 border-2 ${spriteActionType === 'attack' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>ATTACK</button>
-                       <button onClick={() => setSpriteActionType('attack2')} className={`px-3 py-1 border-2 ${spriteActionType === 'attack2' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>ATTACK 2</button>
-                       <button onClick={() => setSpriteActionType('jump')} className={`px-3 py-1 border-2 ${spriteActionType === 'jump' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>JUMP</button>
-                       <button onClick={() => setSpriteActionType('defense')} className={`px-3 py-1 border-2 ${spriteActionType === 'defense' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>DEFENSE</button>
-                       <button onClick={() => setSpriteActionType('dead')} className={`px-3 py-1 border-2 ${spriteActionType === 'dead' ? 'border-blue-500 bg-blue-100 text-black' : 'border-gray-300 text-black'} pixel-text text-xs`}>DEAD</button>
+                    {/* STEP 1: Optional Animations Section - Always visible, can select before Core generation */}
+                    <div className="border-t-2 border-gray-300 pt-3 mb-3">
+                        <label className="pixel-text block text-sm mb-2 font-bold text-black">+ Generate Optional</label>
+                        <div className="flex flex-col gap-2">
+                            <label 
+                                className="flex items-center gap-3 cursor-pointer p-2 border-2 border-gray-300 hover:border-gray-500 hover:bg-gray-50 rounded transition-colors"
+                                onClick={() => {
+                                    if (!coreGenerating && !spriteLoading) {
+                                        setOptionalDefense(!optionalDefense);
+                                    }
+                                }}
+                            >
+                                <input 
+                                    type="checkbox" 
+                                    checked={optionalDefense} 
+                                    onChange={(e) => setOptionalDefense(e.target.checked)}
+                                    disabled={coreGenerating || spriteLoading}
+                                    className="w-5 h-5 cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className="pixel-text text-sm text-black select-none">Defense</span>
+                            </label>
+                            <label 
+                                className="flex items-center gap-3 cursor-pointer p-2 border-2 border-gray-300 hover:border-gray-500 hover:bg-gray-50 rounded transition-colors"
+                                onClick={() => {
+                                    if (!coreGenerating && !spriteLoading) {
+                                        setOptionalDead(!optionalDead);
+                                    }
+                                }}
+                            >
+                                <input 
+                                    type="checkbox" 
+                                    checked={optionalDead} 
+                                    onChange={(e) => setOptionalDead(e.target.checked)}
+                                    disabled={coreGenerating || spriteLoading}
+                                    className="w-5 h-5 cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className="pixel-text text-sm text-black select-none">Dead</span>
+                            </label>
+                        </div>
                     </div>
-                    <div className="p-2 bg-gray-100 rounded border-2 border-gray-200 mb-2"><p className="pixel-text text-[10px] whitespace-pre-line text-black">{animationInfo}</p></div>
-                    <button onClick={generateSprites} disabled={spriteLoading || !spriteReferenceImage} className="pixel-button w-full bg-indigo-600 text-white py-2 text-base hover:bg-indigo-700 disabled:bg-gray-400 border-black">
-                        {spriteLoading ? 'GENERATING SPRITES...' : 'GENERATE FRAMES'}
+                    
+                    {/* STEP 1: Core Animations Button */}
+                    <button 
+                        onClick={generateCoreAnimations} 
+                        disabled={coreGenerating || !spriteReferenceImage} 
+                        className="pixel-button w-full bg-indigo-600 text-white py-3 text-base hover:bg-indigo-700 disabled:bg-gray-400 border-black mb-2"
+                    >
+                        {coreGenerating ? 'GENERATING CORE ANIMATIONS...' : 'GENERATE CORE ANIMATIONS'}
                     </button>
-                    <p className="pixel-text text-xs mt-1 text-black">{spriteStatus}</p>
+                    <p className="pixel-text text-xs mb-2 text-gray-600 text-center">Attack + Attack2 + Jump (Recommended)</p>
+                    
+                    {/* Progress Bars for Core Animations */}
+                    {coreGenerating && (
+                        <div className="space-y-2 mb-2">
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="pixel-text text-xs text-black">Attack</span>
+                                    <span className="pixel-text text-xs text-black">{Math.round(progress.attack)}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-200 border border-gray-400">
+                                    <div 
+                                        className="h-full bg-indigo-600 transition-all duration-300" 
+                                        style={{ width: `${progress.attack}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="pixel-text text-xs text-black">Attack2</span>
+                                    <span className="pixel-text text-xs text-black">{Math.round(progress.attack2)}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-200 border border-gray-400">
+                                    <div 
+                                        className="h-full bg-indigo-600 transition-all duration-300" 
+                                        style={{ width: `${progress.attack2}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="pixel-text text-xs text-black">Jump</span>
+                                    <span className="pixel-text text-xs text-black">{Math.round(progress.jump)}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-200 border border-gray-400">
+                                    <div 
+                                        className="h-full bg-indigo-600 transition-all duration-300" 
+                                        style={{ width: `${progress.jump}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Progress Bars for Optional Animations */}
+                    {spriteLoading && (optionalDefense || optionalDead) && (
+                        <div className="space-y-2 mb-2 border-t-2 border-gray-300 pt-2">
+                            {optionalDefense && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="pixel-text text-xs text-black">Defense</span>
+                                        <span className="pixel-text text-xs text-black">{Math.round(progress.defense)}%</span>
+                                    </div>
+                                    <div className="w-full h-2 bg-gray-200 border border-gray-400">
+                                        <div 
+                                            className="h-full bg-gray-600 transition-all duration-300" 
+                                            style={{ width: `${progress.defense}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            )}
+                            {optionalDead && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="pixel-text text-xs text-black">Dead</span>
+                                        <span className="pixel-text text-xs text-black">{Math.round(progress.dead)}%</span>
+                                    </div>
+                                    <div className="w-full h-2 bg-gray-200 border border-gray-400">
+                                        <div 
+                                            className="h-full bg-gray-600 transition-all duration-300" 
+                                            style={{ width: `${progress.dead}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    
+                    {coreCompleted && (optionalDefense || optionalDead) && !spriteLoading && (
+                        <p className="pixel-text text-xs text-green-600 text-center mb-2">
+                            Core complete! Optional animations will start automatically...
+                        </p>
+                    )}
+                    
+                    <p className="pixel-text text-xs mt-3 text-black">{spriteStatus}</p>
                  </div>
                  <div className="p-3 border-4 border-black bg-white flex-1 overflow-y-auto">
                       <p className="text-xs mb-1 font-bold text-black">Or Upload Your Own:</p>
@@ -2134,7 +2524,38 @@ export default function GameTab() {
                               <div>
                                   <p className="text-xs font-bold mb-1 text-black">Attack ({attackSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {attackSprites.map((frame, i) => <img key={`atk-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
+                                    {attackSprites.map((frame, i) => {
+                                      const frameId = `attack-${i}`;
+                                      const isSelected = selectedFrames.has(frameId);
+                                      return (
+                                        <div key={`atk-${i}`} className="relative">
+                                          <img src={frame} className={`w-full border-2 ${isSelected ? 'border-blue-500' : 'border-gray-300'} bg-white ${!frameSelectionMode ? '' : 'opacity-70'}`} style={{ imageRendering: 'pixelated' }} />
+                                          {frameSelectionMode && (
+                                            <div 
+                                              className="absolute top-0 right-0 w-6 h-6 cursor-pointer hover:scale-110 transition-transform z-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newSelected = new Set(selectedFrames);
+                                                if (isSelected) {
+                                                  newSelected.delete(frameId);
+                                                } else {
+                                                  newSelected.add(frameId);
+                                                }
+                                                setSelectedFrames(newSelected);
+                                              }}
+                                            >
+                                              <div className={`w-full h-full border-2 border-black ${isSelected ? 'bg-blue-500' : 'bg-white'} flex items-center justify-center`}>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                               </div>
                           )}
@@ -2142,7 +2563,38 @@ export default function GameTab() {
                               <div>
                                   <p className="text-xs font-bold mb-1 mt-2 text-black">Attack 2 ({attack2Sprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {attack2Sprites.map((frame, i) => <img key={`atk2-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
+                                    {attack2Sprites.map((frame, i) => {
+                                      const frameId = `attack2-${i}`;
+                                      const isSelected = selectedFrames.has(frameId);
+                                      return (
+                                        <div key={`atk2-${i}`} className="relative">
+                                          <img src={frame} className={`w-full border-2 ${isSelected ? 'border-blue-500' : 'border-gray-300'} bg-white ${!frameSelectionMode ? '' : 'opacity-70'}`} style={{ imageRendering: 'pixelated' }} />
+                                          {frameSelectionMode && (
+                                            <div 
+                                              className="absolute top-0 right-0 w-6 h-6 cursor-pointer hover:scale-110 transition-transform z-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newSelected = new Set(selectedFrames);
+                                                if (isSelected) {
+                                                  newSelected.delete(frameId);
+                                                } else {
+                                                  newSelected.add(frameId);
+                                                }
+                                                setSelectedFrames(newSelected);
+                                              }}
+                                            >
+                                              <div className={`w-full h-full border-2 border-black ${isSelected ? 'bg-blue-500' : 'bg-white'} flex items-center justify-center`}>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                               </div>
                           )}
@@ -2150,7 +2602,38 @@ export default function GameTab() {
                               <div>
                                   <p className="text-xs font-bold mb-1 mt-2 text-black">Jump ({jumpSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {jumpSprites.map((frame, i) => <img key={`jmp-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
+                                    {jumpSprites.map((frame, i) => {
+                                      const frameId = `jump-${i}`;
+                                      const isSelected = selectedFrames.has(frameId);
+                                      return (
+                                        <div key={`jmp-${i}`} className="relative">
+                                          <img src={frame} className={`w-full border-2 ${isSelected ? 'border-blue-500' : 'border-gray-300'} bg-white ${!frameSelectionMode ? '' : 'opacity-70'}`} style={{ imageRendering: 'pixelated' }} />
+                                          {frameSelectionMode && (
+                                            <div 
+                                              className="absolute top-0 right-0 w-6 h-6 cursor-pointer hover:scale-110 transition-transform z-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newSelected = new Set(selectedFrames);
+                                                if (isSelected) {
+                                                  newSelected.delete(frameId);
+                                                } else {
+                                                  newSelected.add(frameId);
+                                                }
+                                                setSelectedFrames(newSelected);
+                                              }}
+                                            >
+                                              <div className={`w-full h-full border-2 border-black ${isSelected ? 'bg-blue-500' : 'bg-white'} flex items-center justify-center`}>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                               </div>
                           )}
@@ -2158,7 +2641,38 @@ export default function GameTab() {
                               <div>
                                   <p className="text-xs font-bold mb-1 mt-2 text-black">Defense ({defenseSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {defenseSprites.map((frame, i) => <img key={`def-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
+                                    {defenseSprites.map((frame, i) => {
+                                      const frameId = `defense-${i}`;
+                                      const isSelected = selectedFrames.has(frameId);
+                                      return (
+                                        <div key={`def-${i}`} className="relative">
+                                          <img src={frame} className={`w-full border-2 ${isSelected ? 'border-blue-500' : 'border-gray-300'} bg-white ${!frameSelectionMode ? '' : 'opacity-70'}`} style={{ imageRendering: 'pixelated' }} />
+                                          {frameSelectionMode && (
+                                            <div 
+                                              className="absolute top-0 right-0 w-6 h-6 cursor-pointer hover:scale-110 transition-transform z-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newSelected = new Set(selectedFrames);
+                                                if (isSelected) {
+                                                  newSelected.delete(frameId);
+                                                } else {
+                                                  newSelected.add(frameId);
+                                                }
+                                                setSelectedFrames(newSelected);
+                                              }}
+                                            >
+                                              <div className={`w-full h-full border-2 border-black ${isSelected ? 'bg-blue-500' : 'bg-white'} flex items-center justify-center`}>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                               </div>
                           )}
@@ -2166,7 +2680,38 @@ export default function GameTab() {
                               <div>
                                   <p className="text-xs font-bold mb-1 mt-2 text-black">Dead ({deadSprites.length})</p>
                                   <div className="grid grid-cols-4 gap-1">
-                                    {deadSprites.map((frame, i) => <img key={`ded-${i}`} src={frame} className="w-full border border-gray-300 bg-white" style={{ imageRendering: 'pixelated' }} />)}
+                                    {deadSprites.map((frame, i) => {
+                                      const frameId = `dead-${i}`;
+                                      const isSelected = selectedFrames.has(frameId);
+                                      return (
+                                        <div key={`ded-${i}`} className="relative">
+                                          <img src={frame} className={`w-full border-2 ${isSelected ? 'border-blue-500' : 'border-gray-300'} bg-white ${!frameSelectionMode ? '' : 'opacity-70'}`} style={{ imageRendering: 'pixelated' }} />
+                                          {frameSelectionMode && (
+                                            <div 
+                                              className="absolute top-0 right-0 w-6 h-6 cursor-pointer hover:scale-110 transition-transform z-10"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const newSelected = new Set(selectedFrames);
+                                                if (isSelected) {
+                                                  newSelected.delete(frameId);
+                                                } else {
+                                                  newSelected.add(frameId);
+                                                }
+                                                setSelectedFrames(newSelected);
+                                              }}
+                                            >
+                                              <div className={`w-full h-full border-2 border-black ${isSelected ? 'bg-blue-500' : 'bg-white'} flex items-center justify-center`}>
+                                                {isSelected && (
+                                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                               </div>
                           )}
