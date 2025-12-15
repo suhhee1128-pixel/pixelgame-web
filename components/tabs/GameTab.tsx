@@ -339,6 +339,16 @@ export default function GameTab() {
   // Helper: Remove White Background
   const removeBackground = (img: HTMLImageElement): HTMLCanvasElement => {
       const canvas = document.createElement('canvas');
+      
+      // Check if image is loaded and has valid dimensions
+      if (!img.complete || img.width === 0 || img.height === 0) {
+          console.error('Image not loaded or invalid dimensions:', { complete: img.complete, width: img.width, height: img.height, src: img.src });
+          // Return a small default canvas to prevent errors
+          canvas.width = 100;
+          canvas.height = 100;
+          return canvas;
+      }
+      
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
@@ -364,8 +374,13 @@ export default function GameTab() {
     if (phase === 'playing') {
         if (generatedImage) {
             const img = new Image();
-            img.src = generatedImage;
+            img.crossOrigin = 'anonymous'; // Allow CORS for blob URLs
             img.onload = () => {
+                // Verify image is loaded before processing
+                if (img.width === 0 || img.height === 0) {
+                    console.error('Generated image loaded but has invalid dimensions:', generatedImage);
+                    return;
+                }
                 playerRef.current.image = removeBackground(img);
             };
         }
@@ -509,17 +524,45 @@ export default function GameTab() {
           
           // Load Main Image
           const mainImg = new Image();
-          mainImg.src = char.imageUrl;
-          await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
+          mainImg.crossOrigin = 'anonymous'; // Allow CORS for blob URLs
+          
+          await new Promise<void>((resolve, reject) => {
+              mainImg.onload = () => {
+                  if (mainImg.width === 0 || mainImg.height === 0) {
+                      console.error('Main image loaded but has invalid dimensions:', mainImg.src);
+                      reject(new Error('Main image has invalid dimensions'));
+                      return;
+                  }
+                  resolve();
+              };
+              mainImg.onerror = (error) => {
+                  console.error('Failed to load main image:', error, mainImg.src);
+                  reject(new Error('Failed to load main image'));
+              };
+              mainImg.src = char.imageUrl;
+          });
+          
           playerRef.current.image = removeBackground(mainImg);
 
           // Helper to load array of URLs
           const loadUrlFrames = async (urls: string[]) => {
               const promises = urls.map(url => new Promise<HTMLCanvasElement | null>((resolve) => {
                   const img = new Image();
+                  img.crossOrigin = 'anonymous'; // Allow CORS for blob URLs
+                  img.onload = () => {
+                      // Verify image is loaded before processing
+                      if (img.width === 0 || img.height === 0) {
+                          console.error('Frame image loaded but has invalid dimensions:', url);
+                          resolve(null);
+                          return;
+                      }
+                      resolve(removeBackground(img));
+                  };
+                  img.onerror = (error) => {
+                      console.error('Failed to load frame image:', url, error);
+                      resolve(null);
+                  };
                   img.src = url;
-                  img.onload = () => resolve(removeBackground(img));
-                  img.onerror = () => resolve(null);
               }));
               const results = await Promise.all(promises);
               return results.filter((f): f is HTMLCanvasElement => f !== null);
@@ -545,23 +588,40 @@ export default function GameTab() {
       
       // Standard Logic for User-Generated Characters (Single Frame Fallback)
       const img = new Image();
-      img.src = char.imageUrl;
-      img.onload = () => {
-          const bgRemoved = removeBackground(img);
-          playerRef.current.image = bgRemoved;
-          
-          const singleFrame = [bgRemoved];
-          playerRef.current.state = 'idle'; // Ensure Idle
-          playerRef.current.frames = singleFrame;
-          playerRef.current.attackFrames = singleFrame;
-          playerRef.current.attack2Frames = singleFrame;
-          playerRef.current.jumpFrames = singleFrame;
-          playerRef.current.deadFrames = singleFrame;
-          playerRef.current.defenseFrames = singleFrame;
-          
-          setPhase('playing');
-      };
-      img.onerror = () => console.error("Failed to load character image");
+      img.crossOrigin = 'anonymous'; // Allow CORS for blob URLs
+      
+      // Wait for image to load before processing
+      await new Promise<void>((resolve, reject) => {
+          img.onload = () => {
+              // Verify image is actually loaded
+              if (img.width === 0 || img.height === 0) {
+                  console.error('Image loaded but has invalid dimensions:', img.src);
+                  reject(new Error('Image has invalid dimensions'));
+                  return;
+              }
+              resolve();
+          };
+          img.onerror = (error) => {
+              console.error("Failed to load character image:", error, img.src);
+              reject(new Error('Failed to load image'));
+          };
+          img.src = char.imageUrl;
+      });
+      
+      // Image is loaded, now process it
+      const bgRemoved = removeBackground(img);
+      playerRef.current.image = bgRemoved;
+      
+      const singleFrame = [bgRemoved];
+      playerRef.current.state = 'idle'; // Ensure Idle
+      playerRef.current.frames = singleFrame;
+      playerRef.current.attackFrames = singleFrame;
+      playerRef.current.attack2Frames = singleFrame;
+      playerRef.current.jumpFrames = singleFrame;
+      playerRef.current.deadFrames = singleFrame;
+      playerRef.current.defenseFrames = singleFrame;
+      
+      setPhase('playing');
   };
 
   const rollDiceAndSave = async () => {
@@ -673,10 +733,31 @@ export default function GameTab() {
       setIsSaving(true);
       
       try {
+          // If generatedImage is a blob URL, upload it to server first
+          let imageUrl = generatedImage;
+          if (generatedImage.startsWith('blob:')) {
+              // Fetch the blob and upload it
+              const blob = await fetch(generatedImage).then(r => r.blob());
+              const formData = new FormData();
+              formData.append('image', blob, 'character.png');
+              
+              const uploadRes = await fetch('/api/upload/character', {
+                  method: 'POST',
+                  body: formData
+              });
+              
+              if (!uploadRes.ok) {
+                  throw new Error('Failed to upload image');
+              }
+              
+              const uploadData = await uploadRes.json();
+              imageUrl = uploadData.imageUrl;
+          }
+          
           const newCharData = {
               name: description.split(' ').slice(0, 2).join(' ') || 'New Hero', // Simple name gen
               type: 'Custom',
-              imageUrl: generatedImage,
+              imageUrl: imageUrl,
               description: description,
               stats: {
                   hp: 20,
@@ -755,10 +836,65 @@ export default function GameTab() {
           const selectedDead = deadSprites.filter((_, i) => selectedFrames.has(`dead-${i}`));
           if (selectedDead.length > 0) filteredSprites.dead = selectedDead;
           
+          // Upload main image if it's a blob URL
+          let imageUrl = generatedImage;
+          if (generatedImage.startsWith('blob:')) {
+              const blob = await fetch(generatedImage).then(r => r.blob());
+              const formData = new FormData();
+              formData.append('image', blob, 'character.png');
+              
+              const uploadRes = await fetch('/api/upload/character', {
+                  method: 'POST',
+                  body: formData
+              });
+              
+              if (!uploadRes.ok) {
+                  throw new Error('Failed to upload main image');
+              }
+              
+              const uploadData = await uploadRes.json();
+              imageUrl = uploadData.imageUrl;
+          }
+          
+          // Upload sprite frames if they are blob URLs
+          const uploadSpriteFrames = async (urls: string[]): Promise<string[]> => {
+              const uploadPromises = urls.map(async (url) => {
+                  if (url.startsWith('blob:')) {
+                      const blob = await fetch(url).then(r => r.blob());
+                      const formData = new FormData();
+                      formData.append('image', blob, 'sprite.png');
+                      
+                      const uploadRes = await fetch('/api/upload/character', {
+                          method: 'POST',
+                          body: formData
+                      });
+                      
+                      if (uploadRes.ok) {
+                          const uploadData = await uploadRes.json();
+                          return uploadData.imageUrl;
+                      } else {
+                          console.error('Failed to upload sprite frame:', url);
+                          return url; // Fallback to original URL
+                      }
+                  }
+                  return url; // Already a server URL
+              });
+              
+              return Promise.all(uploadPromises);
+          };
+          
+          // Upload all sprite frames
+          const uploadedSprites: typeof filteredSprites = {};
+          if (filteredSprites.attack) uploadedSprites.attack = await uploadSpriteFrames(filteredSprites.attack);
+          if (filteredSprites.attack2) uploadedSprites.attack2 = await uploadSpriteFrames(filteredSprites.attack2);
+          if (filteredSprites.jump) uploadedSprites.jump = await uploadSpriteFrames(filteredSprites.jump);
+          if (filteredSprites.defense) uploadedSprites.defense = await uploadSpriteFrames(filteredSprites.defense);
+          if (filteredSprites.dead) uploadedSprites.dead = await uploadSpriteFrames(filteredSprites.dead);
+          
           const newCharData = {
               name: description.split(' ').slice(0, 2).join(' ') || 'New Hero',
               type: 'Custom',
-              imageUrl: generatedImage,
+              imageUrl: imageUrl,
               description: description,
               stats: {
                   hp: 20,
@@ -766,7 +902,7 @@ export default function GameTab() {
                   atk: 1,
                   speed: 10
               },
-              spriteFrames: filteredSprites // Save only selected frames
+              spriteFrames: uploadedSprites // Save only selected frames with server URLs
           };
           
           const res = await fetch('/api/characters', {
@@ -841,12 +977,32 @@ export default function GameTab() {
       }
   };
 
-  const handleCharacterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCharacterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
-          const url = URL.createObjectURL(file);
-          setGeneratedImage(url);
-          setGenStatus('✅ Character uploaded successfully!');
+          
+          // Upload to server to get permanent URL
+          try {
+              const formData = new FormData();
+              formData.append('image', file);
+              
+              const res = await fetch('/api/upload/character', {
+                  method: 'POST',
+                  body: formData
+              });
+              
+              if (res.ok) {
+                  const data = await res.json();
+                  setGeneratedImage(data.imageUrl);
+                  setGenStatus('✅ Character uploaded successfully!');
+              } else {
+                  const error = await res.json();
+                  setGenStatus(`❌ Upload failed: ${error.error}`);
+              }
+          } catch (error: any) {
+              console.error('Upload error:', error);
+              setGenStatus(`❌ Upload failed: ${error.message}`);
+          }
       }
   };
 
@@ -1025,19 +1181,44 @@ export default function GameTab() {
     setSpriteLoading(false);
   };
 
-  const handleCustomUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump' | 'dead' | 'defense' | 'attack2') => {
+  const handleCustomUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'attack' | 'jump' | 'dead' | 'defense' | 'attack2') => {
     if (e.target.files && e.target.files.length > 0) {
         const files = Array.from(e.target.files);
         files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-        const urls = files.map(file => URL.createObjectURL(file));
         
-        if (type === 'attack') setAttackSprites(urls);
-        else if (type === 'attack2') setAttack2Sprites(urls);
-        else if (type === 'jump') setJumpSprites(urls);
-        else if (type === 'defense') setDefenseSprites(urls);
-        else setDeadSprites(urls);
-        
-        setSpriteStatus(`✅ Custom ${type} sprites loaded (${files.length} frames)`);
+        // Upload all files to server
+        try {
+            setSpriteStatus(`Uploading ${files.length} ${type} frames...`);
+            const uploadPromises = files.map(async (file) => {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const res = await fetch('/api/upload/character', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.imageUrl;
+                } else {
+                    throw new Error(`Failed to upload ${file.name}`);
+                }
+            });
+            
+            const urls = await Promise.all(uploadPromises);
+            
+            if (type === 'attack') setAttackSprites(urls);
+            else if (type === 'attack2') setAttack2Sprites(urls);
+            else if (type === 'jump') setJumpSprites(urls);
+            else if (type === 'defense') setDefenseSprites(urls);
+            else setDeadSprites(urls);
+            
+            setSpriteStatus(`✅ Custom ${type} sprites loaded (${files.length} frames)`);
+        } catch (error: any) {
+            console.error('Upload error:', error);
+            setSpriteStatus(`❌ Upload failed: ${error.message}`);
+        }
     }
   };
 

@@ -6,32 +6,16 @@ import archiver from 'archiver';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Support both old format (imageUrls) and new format (frames with type)
-    let frames: { type: string; imageUrls: string[] }[] = [];
-    
-    if (body.frames && Array.isArray(body.frames)) {
-      // New format: multiple animation types
-      frames = body.frames;
-    } else if (body.imageUrls && Array.isArray(body.imageUrls)) {
-      // Old format: single animation type (backward compatibility)
-      frames = [{ type: 'attack', imageUrls: body.imageUrls }];
-    } else {
+    const { imageUrls } = body;
+
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
       return NextResponse.json(
         { error: 'No images provided for download' },
         { status: 400 }
       );
     }
 
-    if (frames.length === 0 || frames.every(f => !f.imageUrls || f.imageUrls.length === 0)) {
-      return NextResponse.json(
-        { error: 'No images provided for download' },
-        { status: 400 }
-      );
-    }
-
-    // Use /tmp in Vercel (serverless), otherwise use data/output
-    const outputDir = process.env.VERCEL ? '/tmp/output' : (process.env.OUTPUT_DIR || 'data/output');
+    const outputDir = process.env.OUTPUT_DIR || 'data/output';
     const timestamp = Date.now();
     const zipFilename = `sprite_frames_${timestamp}.zip`;
 
@@ -53,22 +37,16 @@ export async function POST(request: NextRequest) {
         resolve(Buffer.concat(chunks));
       });
 
-      // Add each animation type's images to the zip with folder structure
-      frames.forEach((frameSet) => {
-        const { type, imageUrls } = frameSet;
+      // Add each image to the zip
+      imageUrls.forEach((imageUrl: string) => {
+        // Extract the relative path from the URL
+        const urlPath = imageUrl.replace('/api/images/', '');
+        const imagePath = path.join(outputDir, urlPath);
         
-        imageUrls.forEach((imageUrl: string, index: number) => {
-          // Extract the relative path from the URL
-          const urlPath = imageUrl.replace('/api/images/', '');
-          const imagePath = path.join(outputDir, urlPath);
-          
-          if (fs.pathExistsSync(imagePath)) {
-            // Create folder structure: type/filename
-            const filename = path.basename(imagePath);
-            const zipPath = `${type}/${filename}`;
-            archive.file(imagePath, { name: zipPath });
-          }
-        });
+        if (fs.pathExistsSync(imagePath)) {
+          const filename = path.basename(imagePath);
+          archive.file(imagePath, { name: filename });
+        }
       });
 
       archive.finalize();
