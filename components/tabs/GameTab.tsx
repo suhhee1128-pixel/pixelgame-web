@@ -33,7 +33,8 @@ type GamePhase = 'home' | 'character_select' | 'creation' | 'sprites' | 'playing
     hitTimer: number;
     isDashing?: boolean; // Added
     attackCombo?: number; // Added
-    attackCooldown?: number; // Added for AI
+    attackCooldown?: number; // Deprecated: Use attackCooldownUntil instead
+    attackCooldownUntil?: number; // 🔥 시간 기반 쿨타임 (performance.now() timestamp)
     hasHit?: boolean; // Added for single hit check
     defenseTimer?: number; // Added
     lastHitFrame?: number; // Added for per-frame hit tracking
@@ -380,6 +381,13 @@ export default function GameTab() {
                     return;
                 }
                 playerRef.current.image = removeBackground(img);
+                
+                // Set player size based on image aspect ratio (maintain original proportions)
+                const aspectRatio = img.width / img.height;
+                const targetHeight = 133; // Keep target height
+                const targetWidth = targetHeight * aspectRatio;
+                playerRef.current.width = targetWidth;
+                playerRef.current.height = targetHeight;
             };
         }
         if (attackSprites.length > 0) {
@@ -494,6 +502,13 @@ export default function GameTab() {
           mainImg.src = '/images/dummy/0_main.png'; // Changed to 0_main.png
           await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
           playerRef.current.image = removeBackground(mainImg);
+          
+          // Set player size based on image aspect ratio (maintain original proportions)
+          const aspectRatio = mainImg.width / mainImg.height;
+          const targetHeight = 133; // Keep target height
+          const targetWidth = targetHeight * aspectRatio;
+          playerRef.current.width = targetWidth;
+          playerRef.current.height = targetHeight;
 
           // Load Animations Parallel
           const [atk1, atk2, jump, dead, def] = await Promise.all([
@@ -541,6 +556,13 @@ export default function GameTab() {
           });
           
           playerRef.current.image = removeBackground(mainImg);
+          
+          // Set player size based on image aspect ratio (maintain original proportions)
+          const aspectRatio = mainImg.width / mainImg.height;
+          const targetHeight = 133; // Keep target height
+          const targetWidth = targetHeight * aspectRatio;
+          playerRef.current.width = targetWidth;
+          playerRef.current.height = targetHeight;
 
           // Helper to load array of URLs
           const loadUrlFrames = async (urls: string[]) => {
@@ -610,6 +632,13 @@ export default function GameTab() {
       const bgRemoved = removeBackground(img);
       playerRef.current.image = bgRemoved;
       
+      // Set player size based on image aspect ratio (maintain original proportions)
+      const aspectRatio = img.width / img.height;
+      const targetHeight = 133; // Keep target height
+      const targetWidth = targetHeight * aspectRatio;
+      playerRef.current.width = targetWidth;
+      playerRef.current.height = targetHeight;
+
       const singleFrame = [bgRemoved];
       playerRef.current.state = 'idle'; // Ensure Idle
       playerRef.current.frames = singleFrame;
@@ -922,6 +951,13 @@ export default function GameTab() {
               mainImg.src = char.imageUrl;
               await new Promise((r) => { mainImg.onload = r; mainImg.onerror = r; });
               playerRef.current.image = removeBackground(mainImg);
+              
+              // Set player size based on image aspect ratio (maintain original proportions)
+              const aspectRatio = mainImg.width / mainImg.height;
+              const targetHeight = 133; // Keep target height
+              const targetWidth = targetHeight * aspectRatio;
+              playerRef.current.width = targetWidth;
+              playerRef.current.height = targetHeight;
               
               // Helper to load array of URLs
               const loadUrlFrames = async (urls: string[]) => {
@@ -1574,22 +1610,29 @@ export default function GameTab() {
         // Safety check: ensure frames exists AND has length
         if (e.frames && e.frames.length > 0) {
             if (e.state === 'attack') {
-                // Attack Animation Cycle
-                e.frameIndex++;
-                // Double check length inside just in case (though outer check covers it)
-                if (e.frameIndex >= e.frames.length) { 
-                    e.frameIndex = 0; e.state = 'idle'; 
-                    e.frames = undefined;
-                    e.attackCombo = 0; // FIX: Reset combo type after attack ends
-                    if(e.attackBox) e.attackBox.active = false;
-                } else { // Only check hitbox if frame is valid
+                // Attack Animation Cycle - 안정화된 프레임 로직
+                if (e.frameIndex < e.frames.length - 1) {
+                    // 마지막 프레임 전까지만 증가
+                    e.frameIndex++;
                     // Active Hitbox on specific frames (Impact)
-                    // Widen the window to ensure hit registration
-                    const mid = Math.floor(e.frames.length / 2);
-                    if (e.frameIndex >= mid - 1 && e.frameIndex <= mid + 2 && e.attackBox) {
+                    // 공격 판정 프레임: 1, 2 (0-based index)
+                    if ((e.frameIndex === 1 || e.frameIndex === 2) && e.attackBox) {
                         e.attackBox.active = true;
                     } else if (e.attackBox) {
                         e.attackBox.active = false;
+                    }
+                } else {
+                    // 마지막 프레임에서 종료 처리
+                    e.frameIndex = 0;
+                    e.state = 'idle';
+                    e.frames = undefined;
+                    e.attackCombo = 0;
+                    // ⚠️ hasHit은 performAttack에서만 리셋 (여기서 리셋하면 안 됨)
+                    if (e.attackBox) e.attackBox.active = false;
+                    
+                    // 🔥 공격 쿨타임 설정 (300ms) - 시간 기반
+                    if (e.type === 'enemy') {
+                        e.attackCooldownUntil = performance.now() + 300; // 300ms 후까지 쿨타임
                     }
                 }
             } else if (e.state === 'defend') {
@@ -1670,44 +1713,44 @@ export default function GameTab() {
       
       enemy.animFrame += 0.2;
 
-      // Attack Cooldown Logic
-      if (enemy.attackCooldown && enemy.attackCooldown > 0) {
-          enemy.attackCooldown--;
-      }
+      // ❌ 쿨타임 감소 로직 제거 (시간 기반으로 변경)
 
       const dx = player.x - enemy.x;
       const dist = Math.abs(dx);
-      const attackRange = 80;
       
-      // Simple AI
-      // If blocked by collision, try to attack
-      const isBlocked = Math.abs(dx) < 120 && Math.abs(dx) > 30 && (enemy.x === 0 || enemy.x === CANVAS_WIDTH || Math.abs(dx) < 60); // Basic heuristic
+      // 🔒 공격 반경 상수
+      const ATTACK_RANGE = 160;
+      
+      // 🔒 공격 시작 조건 (idle 상태 + 쿨타임 + 거리) - 시간 기반
+      const now = performance.now();
+      const canAttack =
+          enemy.state === 'idle' &&
+          (enemy.attackCooldownUntil === undefined || now >= enemy.attackCooldownUntil) &&
+          dist <= ATTACK_RANGE;
 
-      if (dist < 100 || (dist < 150 && Math.random() < 0.05)) { // Increased range and chance
-          // In Attack Range
+      if (dist <= ATTACK_RANGE) {
+          // 공격 반경 안에 있음
           enemy.vx = 0;
-          enemy.state = 'idle'; // Default state when close
+          
+          // 공격 중이 아닐 때만 idle로 설정 (공격 중에는 상태 유지)
+          if (enemy.state !== 'attack') {
+              enemy.state = 'idle';
+          }
           
           // Face player
           enemy.facing = dx > 0 ? 1 : -1;
 
-          // Attack more aggressively if close
-          // Check Cooldown
-          if ((!enemy.attackCooldown || enemy.attackCooldown <= 0) && Math.random() < 0.01) { 
-              // Pattern Logic: REMOVED Attack 2 for now
-              // const pIdx = enemy.patternIndex % 3;
-              // const type = pIdx === 2 ? 'attack2' : 'attack';
-              performAttack(enemy, 'attack'); // Always Attack 1
-              
-              // Increment pattern only on successful attack start
+          // 🔒 공격 시작 (조건 만족 시에만)
+          if (canAttack) {
+              performAttack(enemy, 'attack');
               enemy.patternIndex++;
           }
       } else {
-          // Chase Player
+          // 공격 반경 밖 - 플레이어 추적
           if (enemy.state !== 'attack') {
-            enemy.vx = dx > 0 ? 2 : -2;
-            enemy.state = 'move';
-            enemy.facing = dx > 0 ? 1 : -1;
+              enemy.vx = dx > 0 ? 2 : -2;
+              enemy.state = 'move';
+              enemy.facing = dx > 0 ? 1 : -1;
           }
       }
       
@@ -1719,10 +1762,11 @@ export default function GameTab() {
       if (player.hp > 0) {
           if (checkBodyCollision(enemy, player, nextX)) {
               canMove = false;
-              // If blocked by player, FORCE ATTACK if cooldown ready
-              if (enemy.state !== 'attack' && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
+              // 🔒 충돌 시 공격 (idle 상태 + 쿨타임 + 거리 체크)
+              if (canAttack) {
                   enemy.vx = 0;
                   performAttack(enemy, 'attack');
+                  enemy.patternIndex++;
               }
           }
       }
@@ -1765,8 +1809,9 @@ export default function GameTab() {
                      enemy.frameIndex = 0; enemy.state = 'idle';
                      if (enemy.attackBox) enemy.attackBox.active = false;
                      
-                     // Add Cooldown
-                     enemy.attackCooldown = 60 + Math.floor(Math.random() * 60); // 1~2 seconds cooldown
+                    // 🔥 Add Cooldown (시간 기반)
+                    const cooldownMs = 1000 + Math.floor(Math.random() * 1000); // 1~2 seconds cooldown
+                    enemy.attackCooldownUntil = performance.now() + cooldownMs;
                      
                      enemy.vx = 0; // Stop moving briefly
 
@@ -1784,11 +1829,8 @@ export default function GameTab() {
                          // Activate only on frame 1 and 2 (2nd and 3rd frame)
                          enemy.attackBox.active = (enemy.frameIndex === 1 || enemy.frameIndex === 2);
                          
-                         // FIX: Reset hit tracking when frame changes (allow damage per frame)
-                         if (enemy.lastHitFrame !== enemy.frameIndex) {
-                             enemy.lastHitFrame = enemy.frameIndex;
-                             enemy.hasHit = false; // Reset hit flag for new frame
-                         }
+                         // ⚠️ hasHit은 performAttack에서만 리셋 (프레임마다 리셋하면 안 됨)
+                         // 한 공격당 데미지는 1회만 들어가야 함
                      }
                  }
              } else {
@@ -1805,7 +1847,8 @@ export default function GameTab() {
                       enemy.state = 'idle';
                       enemy.frameIndex = 0;
                       if (enemy.attackBox) enemy.attackBox.active = false;
-                      enemy.attackCooldown = 60; // Cooldown for stickman too
+                      // 🔥 Cooldown for stickman (시간 기반)
+                      enemy.attackCooldownUntil = performance.now() + 1000; // 1 second cooldown
                   } else {
                       // Active hitbox mid-animation
                       if (enemy.frameIndex >= 5 && enemy.frameIndex <= 15 && enemy.attackBox) {
@@ -1887,11 +1930,8 @@ export default function GameTab() {
           }
           
           if (hit) {
-              // FIX: Allow damage per frame (not just once per attack)
-              // Check if we already hit on this frame
-              const alreadyHitThisFrame = enemy.lastHitFrame === enemy.frameIndex && enemy.hasHit;
-              
-              if (!alreadyHitThisFrame) {
+              // 🔥 한 공격당 데미지 1회만 보장
+              if (!enemy.hasHit) {
                   console.log('Enemy attack hit player!', {
                       enemyAttackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
                       playerPos: { x: player.x, y: player.y },
@@ -1900,8 +1940,7 @@ export default function GameTab() {
                       frameIndex: enemy.frameIndex
                   });
                   takeDamage(player, enemy.attackBox.damage || 3, enemy.facing, enemy.attackBox.knockback || 10);
-                  enemy.hasHit = true; // Mark as hit for this frame
-                  enemy.lastHitFrame = enemy.frameIndex; // Track which frame we hit
+                  enemy.hasHit = true; // 🔥 한 공격당 1회만 데미지
                   spawnParticle(player.x, player.y - 50, 'hit');
               }
           }
