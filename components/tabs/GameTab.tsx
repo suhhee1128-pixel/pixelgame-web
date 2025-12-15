@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Character } from '@/lib/types';
+import { ENEMY_SPRITE } from '@/lib/spriteMeta';
 
 // --- Types & Interfaces ---
 type GamePhase = 'home' | 'character_select' | 'creation' | 'sprites' | 'playing' | 'gameover' | 'victory';
@@ -35,6 +36,7 @@ type GamePhase = 'home' | 'character_select' | 'creation' | 'sprites' | 'playing
     attackCooldown?: number; // Added for AI
     hasHit?: boolean; // Added for single hit check
     defenseTimer?: number; // Added
+    lastHitFrame?: number; // Added for per-frame hit tracking
   }
 
 const CANVAS_WIDTH = 800;
@@ -988,29 +990,23 @@ export default function GameTab() {
              // ... standard update logic continues below in Animation & Hitbox section
         }
         
-        // Update attack box position (FIX: Sync every frame)
+        // STEP 3: Update attack box position (PIVOT-based)
+        // e.x, e.y = pivot (character foot center)
         if (e.attackBox) {
-            // Adjust based on facing. 
-            // If facing right (1), box is to the right. Left (-1), to the left.
-            // Center is e.x
-            // e.width is typically 120. e.x is CENTER.
-            // Box should start from center and extend outward.
+            // Attack box offset from pivot (adjustable)
+            const attackOffsetX = e.type === 'enemy' ? 140 : 80;  // Distance forward from pivot
+            const attackOffsetY = e.type === 'enemy' ? 100 : 80;  // Height above pivot (몸통 높이)
             
-            // FIX: Height adjustment. e.y is GROUND (400). 
-            // Box should be around chest/head level.
-            // -100 was too low/high? Let's try -120 to -40 range.
-            
-            const reach = 80; // Distance from center
-            
+            // Calculate attack box position based on facing
             if (e.facing === 1) {
-                // Right
-                e.attackBox.x = e.x; 
+                // Facing right: box extends to the right from pivot
+                e.attackBox.x = e.x + attackOffsetX;
             } else {
-                // Left
-                e.attackBox.x = e.x - e.attackBox.w;
+                // Facing left: box extends to the left from pivot
+                e.attackBox.x = e.x - attackOffsetX - e.attackBox.w;
             }
             
-            e.attackBox.y = e.y - 80; // FIX: Lowered significantly (was -140). Now closer to ground/center.
+            e.attackBox.y = e.y - attackOffsetY; // Pivot 기준 위쪽
         }
     } else if (e.state !== 'defend') { // Ensure movement doesn't override defend
         // Movement
@@ -1287,13 +1283,20 @@ export default function GameTab() {
                          if(enemy.frames[0]) enemy.image = enemy.frames[0];
                      }
                  } else {
-                     // Active Hitbox logic for Sprite
-                     // Active for a longer window in the middle
-                     // FIX: Enemy Attack is only 3 frames now.
-                     // Active on ALL frames or specifically frame 1 (index 1) which is impact
-                     // Let's make it active on Frame 1 and 2 (indices 1, 2) to ensure hit
+                     // STEP 3: Active Hitbox logic for Sprite
+                     // Enemy attack is 3 frames (indices 0, 1, 2)
+                     // Active ONLY on frames 1 and 2 (indices 1, 2) - impact frames
                      
-                     if (enemy.attackBox) enemy.attackBox.active = true;
+                     if (enemy.attackBox) {
+                         // Activate only on frame 1 and 2 (2nd and 3rd frame)
+                         enemy.attackBox.active = (enemy.frameIndex === 1 || enemy.frameIndex === 2);
+                         
+                         // FIX: Reset hit tracking when frame changes (allow damage per frame)
+                         if (enemy.lastHitFrame !== enemy.frameIndex) {
+                             enemy.lastHitFrame = enemy.frameIndex;
+                             enemy.hasHit = false; // Reset hit flag for new frame
+                         }
+                     }
                  }
              } else {
                  // Idle/Move Loop
@@ -1343,25 +1346,71 @@ export default function GameTab() {
           }
       }
 
-      // Update Attack Box Position (FIX: Sync every frame for Enemy too)
+      // STEP 3: Update Attack Box Position (PIVOT-based, sync every frame)
+      // e.x, e.y = pivot (character foot center)
       if (enemy.attackBox) {
-          // Adjust Hitbox based on facing (Left/Right)
-          const reach = 60;
+          // Attack box offset from pivot (adjustable)
+          const attackOffsetX = 70;  // Distance forward from pivot (몸통에서 앞으로)
+          const attackOffsetY = 100;  // Height above pivot (몸통 높이)
+          
+          // Calculate attack box position based on facing
           if (enemy.facing === 1) {
-              enemy.attackBox.x = enemy.x;
+              // Facing right: box extends to the right from pivot
+              enemy.attackBox.x = enemy.x + attackOffsetX;
           } else {
-              enemy.attackBox.x = enemy.x - enemy.attackBox.w;
+              // Facing left: box extends to the left from pivot
+              enemy.attackBox.x = enemy.x - attackOffsetX - enemy.attackBox.w;
           }
           
-          enemy.attackBox.y = enemy.y - 100; // FIX: Lowered significantly (was -140). Now closer to ground/center.
+          enemy.attackBox.y = enemy.y - attackOffsetY; // Pivot 기준 위쪽
+          
+          // Debug: Log attack box position every frame when active
+          if (enemy.attackBox.active && enemy.state === 'attack') {
+              console.log('Enemy attack box position:', {
+                  frameIndex: enemy.frameIndex,
+                  facing: enemy.facing,
+                  pivotX: enemy.x,
+                  pivotY: enemy.y,
+                  attackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
+                  playerX: player.x,
+                  playerY: player.y
+              });
+          }
       }
 
       // Enemy Hitbox Collision Check vs Player
       if (enemy.attackBox && enemy.attackBox.active) {
-          if (checkCollision(enemy.attackBox, player)) {
-              takeDamage(player, 10, enemy.facing, 10); // Player takes damage
-              enemy.attackBox.active = false; // One hit per attack
-              spawnParticle(player.x, player.y - 50, 'hit');
+          const hit = checkCollision(enemy.attackBox, player);
+          
+          // Debug: Always log collision check when attack is active
+          if (enemy.state === 'attack') {
+              console.log('Collision check result:', {
+                  hit,
+                  attackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
+                  player: { x: player.x, y: player.y, width: player.width, height: player.height },
+                  playerHitTimer: player.hitTimer,
+                  playerState: player.state
+              });
+          }
+          
+          if (hit) {
+              // FIX: Allow damage per frame (not just once per attack)
+              // Check if we already hit on this frame
+              const alreadyHitThisFrame = enemy.lastHitFrame === enemy.frameIndex && enemy.hasHit;
+              
+              if (!alreadyHitThisFrame) {
+                  console.log('Enemy attack hit player!', {
+                      enemyAttackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
+                      playerPos: { x: player.x, y: player.y },
+                      playerHitTimer: player.hitTimer,
+                      playerState: player.state,
+                      frameIndex: enemy.frameIndex
+                  });
+                  takeDamage(player, enemy.attackBox.damage || 3, enemy.facing, enemy.attackBox.knockback || 10);
+                  enemy.hasHit = true; // Mark as hit for this frame
+                  enemy.lastHitFrame = enemy.frameIndex; // Track which frame we hit
+                  spawnParticle(player.x, player.y - 50, 'hit');
+              }
           }
       }
   };
@@ -1371,6 +1420,7 @@ export default function GameTab() {
       e.state = 'attack'; e.vx = 0;
       e.frameIndex = 0; // Start from frame 0
       e.hasHit = false; // FIX: Reset hit flag for new attack
+      e.lastHitFrame = -1; // FIX: Reset frame tracking for new attack
       
       // Attack 2 Logic
       if (type === 'attack2') {
@@ -1408,11 +1458,15 @@ export default function GameTab() {
           knockback = 10;
       }
 
+      // FIX: Larger attack box for better hit detection (Enemy attack animation is wide)
+      const attackBoxWidth = e.type === 'enemy' ? 120 : 80;  // 적: 165 → 82 (반으로 줄임)
+      const attackBoxHeight = e.type === 'enemy' ? 100 : 80;
+      
       e.attackBox = { 
           x: 0, // Set in update loop
           y: 0, 
-          w: 80, 
-          h: 80, 
+          w: attackBoxWidth, 
+          h: attackBoxHeight, 
           active: false,
           damage: damage, 
           knockback: knockback
@@ -1420,11 +1474,11 @@ export default function GameTab() {
   };
 
   const checkCollision = (box: {x:number, y:number, w:number, h:number}, target: Entity) => {
-      // FIX: Ignore collision if target is already dead
+      // FIX: Ignore collision if target is already dead or invincible
       if (target.state === 'dead') return false;
+      if (target.hitTimer > 0) return false; // FIX: Ignore hits during invincibility frames
 
-      // 2D Box Collision
-      // FIX: Improve Collision Logic
+      // 2D Box Collision (AABB - Axis-Aligned Bounding Box)
       // Calculate target bounds cleanly based on center x/y and dimensions
       
       const tW = target.type === 'enemy' ? target.width * 0.3 : target.width * 0.4;
@@ -1440,14 +1494,49 @@ export default function GameTab() {
       const tBot = target.y;
       const tTop = target.y - target.height * 0.8;
 
-      return (box.x < tRight && 
-              box.x + box.w > tLeft && 
-              box.y < tBot && 
-              box.y + box.h > tTop);
+      // AABB Collision Detection
+      // Box overlaps if: box left < target right AND box right > target left
+      //                  AND box top < target bottom AND box bottom > target top
+      const boxLeft = box.x;
+      const boxRight = box.x + box.w;
+      const boxTop = box.y;
+      const boxBottom = box.y + box.h;
+      
+      const xOverlap = boxLeft < tRight && boxRight > tLeft;
+      const yOverlap = boxTop < tBot && boxBottom > tTop;
+      
+      const isColliding = xOverlap && yOverlap;
+      
+      // Debug log for collision detection (always log for enemy attacks on player)
+      if (target.type === 'player' && box.w > 100) {
+          console.log('Collision check (ENEMY ATTACK vs PLAYER):', {
+              attackBox: { 
+                  left: boxLeft, right: boxRight, top: boxTop, bottom: boxBottom,
+                  x: box.x, y: box.y, w: box.w, h: box.h
+              },
+              playerBody: { 
+                  left: tLeft, right: tRight, top: tTop, bottom: tBot,
+                  centerX: tX, centerY: target.y, width: tW * 2, height: target.height * 0.8
+              },
+              xOverlap,
+              yOverlap,
+              isColliding,
+              playerHitTimer: target.hitTimer,
+              playerState: target.state
+          });
+      }
+      
+      return isColliding;
   };
 
   const takeDamage = (e: Entity, amount: number, hitDir: number, knockback: number) => {
       if (e.state === 'dead') return;
+      
+      // FIX: Check invincibility frames (hitTimer)
+      if (e.hitTimer > 0) {
+          console.log(`${e.type} is invincible, ignoring damage`);
+          return;
+      }
       
       console.log(`${e.type} taking damage: ${amount}. Current HP: ${e.hp}`); // Debug Log
 
@@ -1567,46 +1656,73 @@ export default function GameTab() {
           ctx.save();
           
           if (e.type === 'enemy') {
-             // Force Sprite Drawing for Enemy (No more Stickman)
-             // Adjust Y slightly up to match pixel character foot level visually
-             const drawY = spriteY - 5;
-
-             // Enemy Sprite Logic (Assuming sprites face LEFT by default based on user feedback)
-             if (e.facing === -1) {
-                 // Facing Left (Default for these sprites) -> Draw normally
-                 if (e.image) {
-                    let img = e.image;
-                    // Use frames if available
-                    if (e.frames && e.frames.length > 0) {
-                        // Wrap index safely
-                        const idx = e.frameIndex % e.frames.length;
-                        if(e.frames[idx]) img = e.frames[idx];
-                    }
-                    ctx.drawImage(img, e.x - e.width/2, drawY - e.height, e.width, e.height);
-                 } else {
-                    // Fallback Box
-                    ctx.fillStyle = e.color; 
-                    ctx.fillRect(e.x - e.width/2, drawY - e.height, e.width, e.height);
+             // STEP 2-3: Pivot-based rendering (MINIMAL CHANGE - rendering only)
+             // e.x, e.y = pivot (character foot center in world coordinates)
+             
+             if (e.image) {
+                 let img = e.image;
+                 // Use frames if available
+                 if (e.frames && e.frames.length > 0) {
+                     const idx = e.frameIndex % e.frames.length;
+                     if(e.frames[idx]) img = e.frames[idx];
                  }
+                 
+                 // STEP 3: Calculate draw position from pivot
+                 // Convert world pivot (e.x, e.y) to sprite frame coordinates (scaled)
+                 const renderW = ENEMY_SPRITE.W * ENEMY_SPRITE.RENDER_SCALE;
+                 const renderH = ENEMY_SPRITE.H * ENEMY_SPRITE.RENDER_SCALE;
+                 const pivotXScaled = ENEMY_SPRITE.PIVOT_X * ENEMY_SPRITE.RENDER_SCALE;
+                 const pivotYScaled = ENEMY_SPRITE.PIVOT_Y * ENEMY_SPRITE.RENDER_SCALE;
+                 
+                 const drawX = e.x - pivotXScaled;
+                 const drawY = e.y - pivotYScaled;
+                 
+                 if (e.facing === -1) {
+                     // Facing Left (Default) -> Draw normally
+                     ctx.drawImage(img, drawX, drawY, renderW, renderH);
+                 } else {
+                     // Facing Right -> Flip horizontally
+                     ctx.save();
+                     ctx.translate(e.x, 0);
+                     ctx.scale(-1, 1);
+                     // Draw with pivot offset (scaled)
+                     ctx.drawImage(img, -pivotXScaled, drawY, renderW, renderH);
+                     ctx.restore();
+                 }
+                 
+                 // STEP 3.5: Pivot visualization INSIDE sprite frame (for calibration)
+                 // This shows where PIVOT_X/Y is in the actual sprite frame
+                 const pivotBoxSize = 10;
+                 ctx.strokeStyle = '#FFFF00'; // Yellow box for visibility
+                 ctx.lineWidth = 2;
+                 ctx.strokeRect(
+                     drawX + pivotXScaled - pivotBoxSize/2,
+                     drawY + pivotYScaled - pivotBoxSize/2,
+                     pivotBoxSize,
+                     pivotBoxSize
+                 );
+                 // Crosshair
+                 ctx.beginPath();
+                 ctx.moveTo(drawX + pivotXScaled - pivotBoxSize, drawY + pivotYScaled);
+                 ctx.lineTo(drawX + pivotXScaled + pivotBoxSize, drawY + pivotYScaled);
+                 ctx.moveTo(drawX + pivotXScaled, drawY + pivotYScaled - pivotBoxSize);
+                 ctx.lineTo(drawX + pivotXScaled, drawY + pivotYScaled + pivotBoxSize);
+                 ctx.stroke();
              } else {
-                 // Facing Right -> Flip horizontally
-                 ctx.save();
-                 ctx.translate(e.x, drawY);
-                 ctx.scale(-1, 1); // Flip
-                 if (e.image) {
-                    let img = e.image;
-                    if (e.frames && e.frames.length > 0) {
-                        const idx = e.frameIndex % e.frames.length;
-                        if(e.frames[idx]) img = e.frames[idx];
-                    }
-                    // Draw centered at 0,0 (since we translated to x)
-                    ctx.drawImage(img, -e.width/2, -e.height, e.width, e.height);
-                 } else {
-                    ctx.fillStyle = e.color;
-                    ctx.fillRect(-e.width/2, -e.height, e.width, e.height);
-                 }
-                 ctx.restore();
+                 // Fallback Box (for debugging)
+                 ctx.fillStyle = e.color;
+                 const drawX = e.x - ENEMY_SPRITE.PIVOT_X * ENEMY_SPRITE.RENDER_SCALE;
+                 const drawY = e.y - ENEMY_SPRITE.PIVOT_Y * ENEMY_SPRITE.RENDER_SCALE;
+                 const renderW = ENEMY_SPRITE.W * ENEMY_SPRITE.RENDER_SCALE;
+                 const renderH = ENEMY_SPRITE.H * ENEMY_SPRITE.RENDER_SCALE;
+                 ctx.fillRect(drawX, drawY, renderW, renderH);
              }
+             
+             // World pivot point (for reference, not for calibration)
+             ctx.fillStyle = '#FFFFFF';
+             ctx.beginPath();
+             ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+             ctx.fill();
              
              // drawStickman(ctx, e); // DISABLED
           } else {
@@ -1632,21 +1748,21 @@ export default function GameTab() {
           }
 
           // --- DEBUG: HITBOX VISUALIZATION ---
-          // 1. Body Hitbox (Blue) - Matches checkBodyCollision logic
-          // Width * 0.4, Height * 0.8 (approx)
-          // FIX: Use same logic as collision check for visualization (NO OFFSETS)
-          const bodyW = e.type === 'enemy' ? e.width * 0.3 : e.width * 0.4;
-          const bodyH = e.height * 0.8;
+          // STEP 2: Body Hitbox based on PIVOT (e.x, e.y = pivot)
+          // ❌ NO magic numbers, NO facing offsets, NO width/height ratios
+          // ✅ Pivot-based only
           
-          let visX = e.x; // Standard Center
-          // FIX: Dynamic Visual Offset (Reduced to 55)
-          if (e.type === 'enemy') {
-              visX += (e.facing === -1 ? 55 : -55);
-          }
+          // Body box dimensions (adjustable, but pivot-based)
+          const bodyW = e.type === 'enemy' ? 55 : 80;  // Fixed width, not ratio
+          const bodyH = e.type === 'enemy' ? 95 : 180; // Fixed height, not ratio
+          
+          // Body box position: pivot (e.x, e.y) centered horizontally, extends upward
+          const bodyBoxX = e.x - bodyW / 2;  // Pivot centered
+          const bodyBoxY = e.y - bodyH;      // Pivot at bottom, box extends upward
           
           ctx.lineWidth = 2;
           ctx.strokeStyle = e.type === 'enemy' ? '#FFFF00' : '#00FFFF'; // Yellow for Enemy, Cyan for Player
-          ctx.strokeRect(visX - bodyW/2, spriteY - bodyH, bodyW, bodyH);
+          ctx.strokeRect(bodyBoxX, bodyBoxY, bodyW, bodyH);
 
           // 2. Attack Hitbox (Red)
           if (e.attackBox) {
