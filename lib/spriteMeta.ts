@@ -9,7 +9,7 @@ export const ENEMY_SPRITE = {
   // Pivot point in frame coordinates (where character's foot/center is in the frame)
   // ⚠️ These must be measured from the actual sprite image, not calculated
   PIVOT_X: 1555, // Character body center X in frame (adjusted by user)
-  PIVOT_Y: 980,  // Character foot Y in frame (temporary - will be adjusted with white box)
+  PIVOT_Y: 1200,  // Character foot Y in frame
   
   // Render scale (to match previous visual size: 247x133)
   // Calculated: 247/2039 ≈ 0.121, 133/1088 ≈ 0.122

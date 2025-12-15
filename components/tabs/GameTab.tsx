@@ -44,6 +44,7 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 450;
 const GROUND_Y = 400; // Standard 2D floor
 const GRAVITY = 0.8;
+const PLAYER_SCALE = 1.10; // 🔥 히어로 크기 스케일
 
 const colorOptions = [
     { name: 'None', value: 'None', color: 'transparent' },
@@ -1358,6 +1359,9 @@ export default function GameTab() {
     enemyRef.current.hp = 200; // FIX: Enemy HP 200 (For Stack Testing)
     enemyRef.current.maxHp = 200;
     enemyRef.current.x = 600;
+    // 🔥 enemy.y를 GROUND_Y로 강제 (pivot = 발 = groundY)
+    enemyRef.current.y = GROUND_Y;
+    enemyRef.current.vy = 0;
     // Reset enemy state correctly for new game
     enemyRef.current.state = 'idle';
     enemyRef.current.frameIndex = 0;
@@ -1682,8 +1686,13 @@ export default function GameTab() {
           
           // Apply knockback physics to enemy
           enemy.y += enemy.vy;
-          if (enemy.y >= GROUND_Y) { enemy.y = GROUND_Y; enemy.vy = 0; }
-          else enemy.vy += GRAVITY;
+          // 🔥 착지 시 GROUND_Y로 강제 (pivot = 발 = groundY)
+          if (enemy.y >= GROUND_Y) { 
+              enemy.y = GROUND_Y; 
+              enemy.vy = 0; 
+          } else {
+              enemy.vy += GRAVITY;
+          }
           
           enemy.x += enemy.vx; 
           enemy.vx *= 0.9; // Friction
@@ -1778,17 +1787,12 @@ export default function GameTab() {
       if (enemy.x < 0) enemy.x = 0; if (enemy.x > CANVAS_WIDTH) enemy.x = CANVAS_WIDTH;
 
       enemy.y += enemy.vy;
-      if (enemy.y > GROUND_Y) {
+      // 🔥 착지 시 GROUND_Y로 강제 (pivot = 발 = groundY)
+      // player와 동일한 로직: 착지하면 무조건 GROUND_Y
+      if (enemy.y >= GROUND_Y) {
           enemy.y = GROUND_Y;
           enemy.vy = 0;
-      } else if (enemy.y < GROUND_Y) {
-          enemy.vy += GRAVITY;
-      }
-
-      if (enemy.y > GROUND_Y) {
-          enemy.y = GROUND_Y;
-          enemy.vy = 0;
-      } else if (enemy.y < GROUND_Y) {
+      } else {
           enemy.vy += GRAVITY;
       }
 
@@ -2250,12 +2254,7 @@ export default function GameTab() {
                  ctx.fillRect(drawX, drawY, renderW, renderH);
              }
              
-             // World pivot point (for reference, not for calibration)
-             ctx.fillStyle = '#FFFFFF';
-             ctx.beginPath();
-             ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
-             ctx.fill();
-             
+             // World pivot point는 아래에서 플레이어와 함께 그려짐
              // drawStickman(ctx, e); // DISABLED
           } else {
              // Player (Original Logic)
@@ -2263,13 +2262,61 @@ export default function GameTab() {
              if (e.image) {
                 let img = e.image;
                 if (e.frames && e.frames.length > e.frameIndex && e.frames[e.frameIndex]) img = e.frames[e.frameIndex];
-                ctx.drawImage(img, e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+                // 🔥 스케일 적용: pivot 위치는 유지하고 렌더 크기만 키움
+                const scaledWidth = e.width * PLAYER_SCALE;
+                const scaledHeight = e.height * PLAYER_SCALE;
+                const drawX = e.x - scaledWidth/2;
+                const drawY = spriteY - scaledHeight + bobOffset;
+                ctx.drawImage(img, drawX, drawY, scaledWidth, scaledHeight);
+                
+                // 🔥 Pivot visualization INSIDE sprite frame (적과 동일)
+                // 플레이어의 pivot은 (e.x, spriteY) = 스프라이트 내부에서 (scaledWidth/2, scaledHeight - bobOffset)
+                const pivotBoxSize = 10;
+                ctx.strokeStyle = '#FFFF00'; // Yellow box for visibility
+                ctx.lineWidth = 2;
+                ctx.strokeRect(
+                    drawX + scaledWidth/2 - pivotBoxSize/2,
+                    drawY + scaledHeight - bobOffset - pivotBoxSize/2,
+                    pivotBoxSize,
+                    pivotBoxSize
+                );
+                // Crosshair
+                ctx.beginPath();
+                ctx.moveTo(drawX + scaledWidth/2 - pivotBoxSize, drawY + scaledHeight - bobOffset);
+                ctx.lineTo(drawX + scaledWidth/2 + pivotBoxSize, drawY + scaledHeight - bobOffset);
+                ctx.moveTo(drawX + scaledWidth/2, drawY + scaledHeight - bobOffset - pivotBoxSize);
+                ctx.lineTo(drawX + scaledWidth/2, drawY + scaledHeight - bobOffset + pivotBoxSize);
+                ctx.stroke();
              } else {
-                ctx.fillStyle = e.color; ctx.fillRect(e.x - e.width/2, spriteY - e.height + bobOffset, e.width, e.height);
+                // Fallback box도 스케일 적용
+                const scaledWidth = e.width * PLAYER_SCALE;
+                const scaledHeight = e.height * PLAYER_SCALE;
+                ctx.fillStyle = e.color; ctx.fillRect(e.x - scaledWidth/2, spriteY - scaledHeight + bobOffset, scaledWidth, scaledHeight);
              }
           }
 
           ctx.restore();
+          
+          // 🔥 World pivot point (플레이어와 적 모두) - 발 위치 표시
+          // ctx.restore() 이후에 그려야 변환 영향 없음
+          ctx.fillStyle = e.type === 'player' ? '#00FF00' : '#FFFFFF'; // 플레이어는 초록색, 적은 흰색
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, 6, 0, Math.PI * 2); // 크기 4 -> 6으로 증가
+          ctx.fill();
+          // 외곽선 추가로 더 명확하게
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // 🔥 Ground Y 표시 (빨간 점)
+          ctx.fillStyle = '#FF0000';
+          ctx.beginPath();
+          ctx.arc(e.x, GROUND_Y, 6, 0, Math.PI * 2); // 크기 4 -> 6으로 증가
+          ctx.fill();
+          // 외곽선 추가로 더 명확하게
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 2;
+          ctx.stroke();
 
           if (e.state === 'hit' && e.type !== 'enemy') {
               ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
