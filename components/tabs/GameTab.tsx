@@ -3234,10 +3234,10 @@ export default function GameTab() {
                   </button>
                 )}
                 {/* Decorative pixel corners or title could go here if needed */}
-                <div className="lg:col-span-2 h-full min-h-0">
+                <div className="lg:col-span-2 h-full min-h-0 pt-12">
                     {renderLeftPanel()}
                 </div>
-                <div className="h-full min-h-0">
+                <div className="h-full min-h-0 pt-12">
                     {renderRightPanel()}
                 </div>
             </div>
