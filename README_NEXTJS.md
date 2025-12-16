@@ -109,22 +109,29 @@ gameai/
 
 ## 🛠️ Configuration
 
-### Environment Variables
+### Environment Variables (🔒 절대 레포에 올리지 말 것)
 
-Create a `.env.local` file and set the following variables:
+1. **`.env.local` 파일은 무조건 로컬 전용**
+   - 이 레포의 `.gitignore` 에 이미 다음이 들어 있어서 GitHub로 푸시되지 않습니다:
+   - `.env*.local`, `.env`
+2. **민감 정보는 코드에 직접 쓰지 말고, `.env.local` 에만 넣으세요.**
+3. `GEMINI_API_KEY` 는 예시/더미 값만 쓰고, 진짜 키는 절대 커밋하지 마세요.
+
+예시는 다음처럼 작성합니다:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here  # ⚠️ 여기에는 진짜 키 말고, 예시/로컬 값만
 OUTPUT_DIR=data/output
 IMAGE_MODEL_NAME=gemini-2.5-flash-image-preview
 ```
 
 ### API Setup
 
-1. **Get Gemini API Key**:
+1. **Get Gemini API Key (로컬에서만 사용)**:
    - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Create a new API key
-   - Add it to your `.env.local` file
+   - 절대 README나 코드, 커밋, 이슈에 붙여넣지 마세요.
+   - **오직 `.env.local` 파일에만** 넣어서 사용하세요.
 
 ## 🎨 Style Options
 

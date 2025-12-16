@@ -8,13 +8,14 @@ export default function Home() {
       {/* Background Image */}
       <div
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: "url('/real_background.png')" }}
+        style={{ backgroundImage: "url('/real2_background.png')" }}
       />
 
       {/* Main Container: center horizontally, lifted further from bottom */}
       <div
         className="relative z-10 min-h-screen w-full flex flex-col items-center justify-end p-4"
-        style={{ paddingBottom: '140px' }}
+        // 🔥 기존 120px/140px -> 200px로 변경하여 버튼을 확실히 위로 올림
+        style={{ paddingBottom: '360px' }}
       >
         <Link
           href="/generator"
