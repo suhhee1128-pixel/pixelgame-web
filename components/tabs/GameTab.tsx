@@ -1004,6 +1004,11 @@ export default function GameTab() {
               setFrameSelectionMode(null);
               setSelectedFrames(new Set());
               
+              // Load enemy sprites before starting game
+              setIsLoading(true);
+              await loadEnemySprites();
+              setIsLoading(false);
+              
               // Start game
               setPhase('playing');
           } else {
