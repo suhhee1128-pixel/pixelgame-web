@@ -299,7 +299,7 @@ export default function GameTab() {
     
     // Load BG Image
     const img = new Image();
-    img.src = '/game-background.jpg';
+    img.src = '/game-background.png';
     img.onload = () => setBgImage(img);
 
     return () => {
@@ -1904,18 +1904,18 @@ export default function GameTab() {
           
           enemy.attackBox.y = enemy.y - attackOffsetY; // Pivot 기준 위쪽
           
-          // Debug: Log attack box position every frame when active
-          if (enemy.attackBox.active && enemy.state === 'attack') {
-              console.log('Enemy attack box position:', {
-                  frameIndex: enemy.frameIndex,
-                  facing: enemy.facing,
-                  pivotX: enemy.x,
-                  pivotY: enemy.y,
-                  attackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
-                  playerX: player.x,
-                  playerY: player.y
-              });
-          }
+      // Debug: Log attack box position every frame when active
+      if (enemy.attackBox.active && enemy.state === 'attack') {
+          /* console.log('Enemy attack box position:', {
+              frameIndex: enemy.frameIndex,
+              facing: enemy.facing,
+              pivotX: enemy.x,
+              pivotY: enemy.y,
+              attackBox: { x: enemy.attackBox.x, y: enemy.attackBox.y, w: enemy.attackBox.w, h: enemy.attackBox.h },
+              playerX: player.x,
+              playerY: player.y
+          }); */
+      }
       }
 
       // Enemy Hitbox Collision Check vs Player
@@ -2233,6 +2233,7 @@ export default function GameTab() {
                      ctx.restore();
                  }
                  
+                 /*
                  // STEP 3.5: Pivot visualization INSIDE sprite frame (for calibration)
                  // This shows where PIVOT_X/Y is in the actual sprite frame
                  const pivotBoxSize = 10;
@@ -2251,6 +2252,7 @@ export default function GameTab() {
                  ctx.moveTo(drawX + pivotXScaled, drawY + pivotYScaled - pivotBoxSize);
                  ctx.lineTo(drawX + pivotXScaled, drawY + pivotYScaled + pivotBoxSize);
                  ctx.stroke();
+                 */
              } else {
                  // Fallback Box (for debugging)
                  ctx.fillStyle = e.color;
@@ -2276,6 +2278,7 @@ export default function GameTab() {
                 const drawY = spriteY - scaledHeight + bobOffset;
                 ctx.drawImage(img, drawX, drawY, scaledWidth, scaledHeight);
                 
+                /*
                 // 🔥 Pivot visualization INSIDE sprite frame (적과 동일)
                 // 플레이어의 pivot은 (e.x, spriteY) = 스프라이트 내부에서 (scaledWidth/2, scaledHeight - bobOffset)
                 const pivotBoxSize = 10;
@@ -2294,6 +2297,7 @@ export default function GameTab() {
                 ctx.moveTo(drawX + scaledWidth/2, drawY + scaledHeight - bobOffset - pivotBoxSize);
                 ctx.lineTo(drawX + scaledWidth/2, drawY + scaledHeight - bobOffset + pivotBoxSize);
                 ctx.stroke();
+                */
              } else {
                 // Fallback box도 스케일 적용
                 const scaledWidth = e.width * PLAYER_SCALE;
@@ -2304,6 +2308,7 @@ export default function GameTab() {
 
           ctx.restore();
           
+          /*
           // 🔥 World pivot point (플레이어와 적 모두) - 발 위치 표시
           // ctx.restore() 이후에 그려야 변환 영향 없음
           ctx.fillStyle = e.type === 'player' ? '#00FF00' : '#FFFFFF'; // 플레이어는 초록색, 적은 흰색
@@ -2324,6 +2329,7 @@ export default function GameTab() {
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 2;
           ctx.stroke();
+          */
 
           if (e.state === 'hit' && e.type !== 'enemy') {
               ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -2333,6 +2339,7 @@ export default function GameTab() {
               // ctx.fillRect(e.x - e.width/2, spriteY - e.height, e.width, e.height);
           }
 
+          /*
           // --- DEBUG: HITBOX VISUALIZATION ---
           // STEP 2: Body Hitbox based on PIVOT (e.x, e.y = pivot)
           // ✅ Pivot-based, 스프라이트 크기 기반
@@ -2370,6 +2377,7 @@ export default function GameTab() {
               ctx.strokeRect(e.attackBox.x, e.attackBox.y, e.attackBox.w, e.attackBox.h);
           }
           // --- END DEBUG ---
+          */
       });
       
       // Effects
