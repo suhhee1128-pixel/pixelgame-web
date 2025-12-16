@@ -177,7 +177,7 @@ export default function GameTab() {
               'attack2': 6,
               'jump': 4,
               'defense': 4,
-              'dead': 4
+              'dead': 3
           };
           
           const loadedFrames: {[key: string]: (HTMLImageElement | HTMLCanvasElement)[]} = {};
@@ -1918,9 +1918,9 @@ export default function GameTab() {
           }
       }
 
-    // Enemy Hitbox Collision Check vs Player
-    if (enemy.attackBox && enemy.attackBox.active) {
-        const hit = checkCollision(enemy.attackBox, player);
+      // Enemy Hitbox Collision Check vs Player
+      if (enemy.attackBox && enemy.attackBox.active) {
+          const hit = checkCollision(enemy.attackBox, player);
         console.log(
             '[ENEMY HIT CHECK]',
             'attackActive:', enemy.attackBox.active,
