@@ -790,8 +790,8 @@ export default function GameTab() {
               imageUrl: imageUrl,
               description: description,
               stats: {
-                  hp: 20,
-                  maxHp: 20,
+                  hp: 35,
+                  maxHp: 35,
                   atk: 1,
                   speed: 10
               }
@@ -928,8 +928,8 @@ export default function GameTab() {
               imageUrl: imageUrl,
               description: description,
               stats: {
-                  hp: 20,
-                  maxHp: 20,
+                  hp: 35,
+                  maxHp: 35,
                   atk: 1,
                   speed: 10
               },
@@ -988,8 +988,8 @@ export default function GameTab() {
               }
               
               // Set player stats
-              playerRef.current.hp = char.stats?.hp || 20;
-              playerRef.current.maxHp = char.stats?.maxHp || 20;
+              playerRef.current.hp = char.stats?.hp || 35;
+              playerRef.current.maxHp = char.stats?.maxHp || 35;
               playerRef.current.atk = char.stats?.atk || 1;
               
               playerRef.current.state = 'idle';
