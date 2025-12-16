@@ -150,6 +150,7 @@ export default function GameTab() {
   const [diceResult, setDiceResult] = useState<number | null>(null);
   const [rewardMessage, setRewardMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // 🔥 Loading State
 
   const enemyRef = useRef<Entity & { patternIndex: number }>({
     x: 600, y: GROUND_Y, vx: 0, vy: 0, 
@@ -166,69 +167,7 @@ export default function GameTab() {
   const victoryTimerRef = useRef<number>(0);
 
   // --- Effects ---
-  useEffect(() => {
-      const loadEnemySprites = async () => {
-          console.log("Attempting to load enemy sprites...");
-          
-          // Define frame counts for each animation type
-          const spriteConfig: { [key: string]: number } = {
-              'idle': 1,
-              'attack': 3, // Changed from 5 to 3
-              'attack2': 6,
-              'jump': 4,
-              'defense': 4,
-              'dead': 3
-          };
-          
-          const loadedFrames: {[key: string]: (HTMLImageElement | HTMLCanvasElement)[]} = {};
-          
-          // Load frames based on config
-          for (const [type, count] of Object.entries(spriteConfig)) {
-              const frames: (HTMLImageElement | HTMLCanvasElement)[] = [];
-              for (let i = 1; i <= count; i++) {
-                  const img = new Image();
-                  // Use timestamp to bust cache if needed, but try standard first
-                  img.src = `/images/enemy/${type}/${i}.png`; 
-                  
-                  await new Promise((resolve) => {
-                      img.onload = () => {
-                          console.log(`Loaded: ${type}/${i}.png`);
-                          frames.push(removeBackground(img));
-                          resolve(null);
-                      };
-                      img.onerror = () => {
-                          // console.log(`Failed: ${type}/${i}.png`); // Reduce noise
-                          resolve(null); 
-                      };
-                  });
-              }
-              if (frames.length > 0) {
-                  loadedFrames[type] = frames;
-                  console.log(`Set ${type} frames: ${frames.length}`);
-              }
-          }
-          
-          // Apply to Enemy
-          if (loadedFrames['idle'] && loadedFrames['idle'].length > 0) {
-              enemyRef.current.frames = loadedFrames['idle'];
-              enemyRef.current.image = loadedFrames['idle'][0]; // Set default image explicitly
-              console.log("Enemy IDLE frames set! Default image updated.");
-          } else {
-              console.log("Warning: No IDLE frames found for enemy.");
-          }
-          if (loadedFrames['attack']) enemyRef.current.attackFrames = loadedFrames['attack'];
-          if (loadedFrames['attack2']) enemyRef.current.attack2Frames = loadedFrames['attack2'];
-          if (loadedFrames['jump']) enemyRef.current.jumpFrames = loadedFrames['jump'];
-          if (loadedFrames['defense']) enemyRef.current.defenseFrames = loadedFrames['defense'];
-          if (loadedFrames['dead']) enemyRef.current.deadFrames = loadedFrames['dead'];
-          
-          // Force re-render logic or state update if needed, but Ref change usually reflects next frame
-      };
-
-      if (phase === 'playing') {
-          loadEnemySprites();
-      }
-  }, [phase]);
+  /* Enemy Sprite Loading moved to startGameWithCharacter */
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { 
@@ -370,6 +309,62 @@ export default function GameTab() {
       return canvas;
   };
 
+  const loadEnemySprites = async () => {
+      console.log("Attempting to load enemy sprites...");
+      
+      // Define frame counts for each animation type
+      const spriteConfig: { [key: string]: number } = {
+          'idle': 1,
+          'attack': 3,
+          'attack2': 6,
+          'jump': 4,
+          'defense': 4,
+          'dead': 3
+      };
+      
+      const loadedFrames: {[key: string]: (HTMLImageElement | HTMLCanvasElement)[]} = {};
+      
+      // Load frames based on config
+      for (const [type, count] of Object.entries(spriteConfig)) {
+          const frames: (HTMLImageElement | HTMLCanvasElement)[] = [];
+          for (let i = 1; i <= count; i++) {
+              const img = new Image();
+              // Use timestamp to bust cache if needed, but try standard first
+              img.src = `/images/enemy/${type}/${i}.png`; 
+              
+              await new Promise((resolve) => {
+                  img.onload = () => {
+                      // console.log(`Loaded: ${type}/${i}.png`);
+                      frames.push(removeBackground(img));
+                      resolve(null);
+                  };
+                  img.onerror = () => {
+                      // console.log(`Failed: ${type}/${i}.png`); // Reduce noise
+                      resolve(null); 
+                  };
+              });
+          }
+          if (frames.length > 0) {
+              loadedFrames[type] = frames;
+              console.log(`Set ${type} frames: ${frames.length}`);
+          }
+      }
+      
+      // Apply to Enemy
+      if (loadedFrames['idle'] && loadedFrames['idle'].length > 0) {
+          enemyRef.current.frames = loadedFrames['idle'];
+          enemyRef.current.image = loadedFrames['idle'][0]; // Set default image explicitly
+          console.log("Enemy IDLE frames set! Default image updated.");
+      } else {
+          console.log("Warning: No IDLE frames found for enemy.");
+      }
+      if (loadedFrames['attack']) enemyRef.current.attackFrames = loadedFrames['attack'];
+      if (loadedFrames['attack2']) enemyRef.current.attack2Frames = loadedFrames['attack2'];
+      if (loadedFrames['jump']) enemyRef.current.jumpFrames = loadedFrames['jump'];
+      if (loadedFrames['defense']) enemyRef.current.defenseFrames = loadedFrames['defense'];
+      if (loadedFrames['dead']) enemyRef.current.deadFrames = loadedFrames['dead'];
+  };
+
   useEffect(() => {
     if (phase === 'playing') {
         if (generatedImage) {
@@ -472,6 +467,7 @@ export default function GameTab() {
 
   // --- Character Selection & Game Start Logic ---
   const startGameWithCharacter = async (char: Character) => {
+      setIsLoading(true); // START LOADING
       setSelectedChar(char);
       
       // Initialize Player
@@ -530,6 +526,8 @@ export default function GameTab() {
           playerRef.current.state = 'idle';
           playerRef.current.frames = [playerRef.current.image as HTMLCanvasElement]; 
           
+          await loadEnemySprites(); // Wait for enemy sprites
+          setIsLoading(false);
           setPhase('playing');
           return;
       } else if (char.spriteFrames && Object.keys(char.spriteFrames).length > 0) {
@@ -603,6 +601,8 @@ export default function GameTab() {
           }
           
           playerRef.current.state = 'idle';
+          await loadEnemySprites();
+          setIsLoading(false);
           setPhase('playing');
           return;
       }
@@ -649,6 +649,8 @@ export default function GameTab() {
       playerRef.current.deadFrames = singleFrame;
       playerRef.current.defenseFrames = singleFrame;
       
+      await loadEnemySprites();
+      setIsLoading(false);
       setPhase('playing');
   };
 
@@ -3182,6 +3184,26 @@ export default function GameTab() {
       }
       return null;
   };
+
+  // Loading Screen Overlay
+  if (isLoading) {
+      return (
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-black z-50 absolute inset-0">
+              <div className="flex flex-col items-center gap-6">
+                  <div className="w-16 h-16 border-4 border-t-white border-r-transparent border-b-white border-l-transparent rounded-full animate-spin"></div>
+                  <h2 
+                    className="text-3xl text-white font-bold animate-pulse"
+                    style={{ 
+                      fontFamily: "'Galmuri11', 'Courier New', monospace",
+                      textShadow: '2px 2px 0 #000'
+                    }}
+                  >
+                    SUMMONING ENEMY...
+                  </h2>
+              </div>
+          </div>
+      );
+  }
 
   if (phase === 'character_select') return renderCharacterSelect();
 
