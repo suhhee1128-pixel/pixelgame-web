@@ -2908,11 +2908,11 @@ export default function GameTab() {
   const renderRightPanel = () => {
       if (phase === 'creation') {
           return (
-            <div className="h-full flex flex-col p-3 border-4 border-black bg-white">
+            <div className="h-full flex flex-col p-3 border-4 border-black bg-white overflow-hidden">
                 <h3 className="pixel-label text-base mb-2 text-center text-black">PREVIEW</h3>
                 
-                {/* Preview Area - Aspect Square */}
-                <div className="w-full aspect-square bg-gray-100 border-2 border-black relative flex items-center justify-center overflow-hidden mb-3 shrink-0">
+                {/* Preview Area - Responsive box (kept inside panel) */}
+                <div className="w-full bg-gray-100 border-2 border-black relative flex items-center justify-center overflow-hidden mb-3 shrink-0 max-h-[260px]">
                     {!generatedImage && (
                         <div className="flex flex-col items-center justify-center gap-4 p-4 text-center">
                             <div className="relative">
